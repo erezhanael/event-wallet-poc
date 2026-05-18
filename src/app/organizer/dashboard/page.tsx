@@ -6,6 +6,8 @@ import { StatCard } from "@/components/stat-card";
 import { getDashboardMetrics, getEvents } from "@/lib/data";
 import { formatMoney } from "@/lib/money";
 
+export const dynamic = "force-dynamic";
+
 export default async function OrganizerDashboardPage() {
   const [event] = await getEvents();
   const metrics = await getDashboardMetrics(event.id);

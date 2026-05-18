@@ -3,6 +3,8 @@ import { CalendarDays, Ticket } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { getEvents } from "@/lib/data";
 
+export const dynamic = "force-dynamic";
+
 export default async function AttendeeEventsPage() {
   const events = await getEvents();
 
