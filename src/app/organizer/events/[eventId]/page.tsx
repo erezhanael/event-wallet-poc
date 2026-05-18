@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Download, ListPlus, ReceiptText, UserPlus } from "lucide-react";
+import { Download, ListPlus, ReceiptText } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { getEvent } from "@/lib/data";
+import { BartenderManager } from "@/components/bartender-manager";
+import { getEvent, getEventBartenders } from "@/lib/data";
 
 export default async function EventAdminPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const event = await getEvent(eventId);
+  const [event, bartenders] = await Promise.all([getEvent(eventId), getEventBartenders(eventId)]);
 
   if (!event) return <AppShell><p>Event not found.</p></AppShell>;
 
@@ -21,11 +22,7 @@ export default async function EventAdminPage({ params }: { params: Promise<{ eve
           <h2 className="mt-4 text-lg font-semibold">Create Drink Menu</h2>
           <p className="mt-2 text-sm text-slate-600">Manage item names, prices, categories, and availability.</p>
         </Link>
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <UserPlus className="text-emerald-700" />
-          <h2 className="mt-4 text-lg font-semibold">Add Bartenders</h2>
-          <p className="mt-2 text-sm text-slate-600">Assign staff by email through event_members with role bartender.</p>
-        </section>
+        <BartenderManager eventId={event.id} initialBartenders={bartenders} />
         <Link href={`/organizer/events/${event.id}/transactions`} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm hover:border-emerald-500">
           <ReceiptText className="text-emerald-700" />
           <h2 className="mt-4 text-lg font-semibold">Transactions</h2>

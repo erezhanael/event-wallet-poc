@@ -37,6 +37,15 @@ export type MenuItem = {
   active: boolean;
 };
 
+export type EventBartender = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  email: string | null;
+  full_name: string;
+  created_at: string;
+};
+
 export type Transaction = {
   id: string;
   event_id: string;

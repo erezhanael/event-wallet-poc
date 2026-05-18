@@ -1,6 +1,6 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
-import { mockDashboard, mockEvent, mockMenuItems, mockTransactions, mockWallet } from "./mock-data";
-import type { DashboardMetrics, EventRecord, MenuItem, Transaction, Wallet } from "./types";
+import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTransactions, mockWallet } from "./mock-data";
+import type { DashboardMetrics, EventBartender, EventRecord, MenuItem, Transaction, Wallet } from "./types";
 
 export async function getEvents(): Promise<EventRecord[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [mockEvent];
@@ -50,6 +50,60 @@ export async function getOrganizerMenuItems(eventId: string): Promise<MenuItem[]
     .order("name");
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getEventBartenders(eventId: string): Promise<EventBartender[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const bartender = mockProfiles.find((profile) => profile.role === "bartender");
+    return bartender
+      ? [
+          {
+            id: "mock-bartender-member",
+            event_id: mockEvent.id,
+            user_id: bartender.id,
+            email: "bartender@example.com",
+            full_name: bartender.full_name,
+            created_at: bartender.created_at,
+          },
+        ]
+      : [];
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data: members, error: membersError } = await supabase
+    .from("event_members")
+    .select("id, event_id, user_id, created_at")
+    .eq("event_id", eventId)
+    .eq("role", "bartender")
+    .order("created_at", { ascending: false });
+  if (membersError) throw membersError;
+
+  const userIds = (members ?? []).map((member) => member.user_id);
+  if (!userIds.length) return [];
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("users_profile")
+    .select("id, full_name")
+    .in("id", userIds);
+  if (profilesError) throw profilesError;
+
+  const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const authUsers = await Promise.all(
+    userIds.map(async (userId) => {
+      const { data } = await supabase.auth.admin.getUserById(userId);
+      return data.user;
+    }),
+  );
+  const emailById = new Map(authUsers.filter((user) => user !== null).map((user) => [user.id, user.email ?? null]));
+
+  return (members ?? []).map((member) => ({
+    id: member.id,
+    event_id: member.event_id,
+    user_id: member.user_id,
+    email: emailById.get(member.user_id) ?? null,
+    full_name: profilesById.get(member.user_id)?.full_name ?? "Bartender",
+    created_at: member.created_at,
+  }));
 }
 
 export async function getTransactions(eventId: string): Promise<Transaction[]> {
