@@ -39,6 +39,19 @@ export async function getMenuItems(eventId: string): Promise<MenuItem[]> {
   return data ?? [];
 }
 
+export async function getOrganizerMenuItems(eventId: string): Promise<MenuItem[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockMenuItems;
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("menu_items")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("category")
+    .order("name");
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function getTransactions(eventId: string): Promise<Transaction[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockTransactions;
   const supabase = createServiceSupabaseClient();
