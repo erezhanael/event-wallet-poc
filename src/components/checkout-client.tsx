@@ -1,11 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CheckCircle, Minus, Search, ShoppingCart, Trash2, XCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, CheckCircle, Minus, Search, ShoppingCart, Trash2, X, XCircle } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import type { MenuItem, Wallet } from "@/lib/types";
 
 type Cart = Record<string, number>;
+type ScanState = "idle" | "starting" | "unsupported" | "error";
+type BarcodeDetectorResult = { rawValue: string };
+type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => {
+  detect(source: HTMLVideoElement): Promise<BarcodeDetectorResult[]>;
+};
+type WindowWithBarcodeDetector = Window & { BarcodeDetector?: BarcodeDetectorConstructor };
 
 export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; wallet: Wallet }) {
   const [walletToken, setWalletToken] = useState(wallet.qr_token);
@@ -13,11 +19,106 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
   const [cart, setCart] = useState<Cart>({});
   const [status, setStatus] = useState<"idle" | "success" | "failure">("idle");
   const [message, setMessage] = useState("");
+  const [scanState, setScanState] = useState<ScanState>("idle");
+  const [scanMessage, setScanMessage] = useState("");
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const total = useMemo(
     () => menuItems.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price_cents, 0),
     [cart, menuItems],
   );
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }
+
+  useEffect(() => {
+    if (scanState !== "starting") return;
+
+    let isActive = true;
+    let frameId = 0;
+    const BarcodeDetector = (window as WindowWithBarcodeDetector).BarcodeDetector;
+
+    async function startScanner() {
+      if (!BarcodeDetector) {
+        setScanState("unsupported");
+        setScanMessage("Camera QR scanning is not supported in this browser.");
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setScanState("unsupported");
+        setScanMessage("Camera access is not available in this browser.");
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+        if (!isActive) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        const video = videoRef.current;
+        if (!video) return;
+
+        video.srcObject = stream;
+        await video.play();
+        setScanMessage("Point the camera at an attendee wallet QR.");
+
+        const detector = new BarcodeDetector({ formats: ["qr_code"] });
+        const scanFrame = async () => {
+          if (!isActive || !videoRef.current) return;
+
+          try {
+            if (videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+              const codes = await detector.detect(videoRef.current);
+              const token = codes[0]?.rawValue?.trim();
+              if (token) {
+                setWalletToken(token);
+                setStatus("idle");
+                setScanMessage("Wallet token scanned.");
+                setScanState("idle");
+                return;
+              }
+            }
+          } catch {
+            setScanMessage("Still looking for a QR code.");
+          }
+
+          frameId = window.requestAnimationFrame(scanFrame);
+        };
+
+        frameId = window.requestAnimationFrame(scanFrame);
+      } catch {
+        setScanState("error");
+        setScanMessage("Camera permission was blocked or no camera was found.");
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      isActive = false;
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [scanState]);
+
+  useEffect(() => {
+    if (scanState === "starting") return;
+    stopCamera();
+  }, [scanState]);
+
+  useEffect(() => stopCamera, []);
 
   function addItem(id: string) {
     setStatus("idle");
@@ -41,6 +142,17 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
   function clearCart() {
     setStatus("idle");
     setCart({});
+  }
+
+  function startScan() {
+    setStatus("idle");
+    setScanMessage("Starting camera...");
+    setScanState("starting");
+  }
+
+  function cancelScan() {
+    setScanMessage("");
+    setScanState("idle");
   }
 
   async function charge() {
@@ -79,15 +191,40 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
-          <Search size={18} className="text-slate-500" />
-          <input
-            value={walletToken}
-            onChange={(event) => setWalletToken(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-            placeholder="Scan or enter wallet token"
-          />
+        <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
+            <Search size={18} className="shrink-0 text-slate-500" />
+            <input
+              value={walletToken}
+              onChange={(event) => setWalletToken(event.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+              placeholder="Scan or enter wallet token"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={scanState === "starting" ? cancelScan : startScan}
+            className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            {scanState === "starting" ? <X size={17} /> : <Camera size={17} />}
+            {scanState === "starting" ? "Stop" : "Scan"}
+          </button>
         </div>
+        {scanState !== "idle" || scanMessage ? (
+          <div className="mb-4 overflow-hidden rounded-lg border border-slate-200 bg-slate-950 text-white">
+            {scanState === "starting" && <video ref={videoRef} playsInline muted className="aspect-video w-full bg-black object-cover" />}
+            <div className="flex items-center justify-between gap-3 p-3 text-sm">
+              <span className={scanState === "unsupported" || scanState === "error" ? "text-red-200" : "text-slate-200"}>
+                {scanMessage || "Ready to scan."}
+              </span>
+              {(scanState === "unsupported" || scanState === "error") && (
+                <button type="button" onClick={cancelScan} className="shrink-0 rounded-md bg-white/10 px-3 py-1 font-semibold hover:bg-white/20">
+                  Close
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {menuItems.map((item) => (
             <button
