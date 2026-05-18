@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { Camera, CheckCircle, Minus, Search, ShoppingCart, Trash2, X, XCircle } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import type { MenuItem, Wallet } from "@/lib/types";
 
 type Cart = Record<string, number>;
 type ScanState = "idle" | "starting" | "unsupported" | "error";
-type BarcodeDetectorResult = { rawValue: string };
-type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => {
-  detect(source: HTMLVideoElement): Promise<BarcodeDetectorResult[]>;
-};
-type WindowWithBarcodeDetector = Window & { BarcodeDetector?: BarcodeDetectorConstructor };
 
 export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; wallet: Wallet }) {
   const [walletToken, setWalletToken] = useState(wallet.qr_token);
@@ -22,7 +18,7 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanMessage, setScanMessage] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const scannerControlsRef = useRef<IScannerControls | null>(null);
 
   const total = useMemo(
     () => menuItems.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price_cents, 0),
@@ -30,8 +26,8 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
   );
 
   function stopCamera() {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+    scannerControlsRef.current?.stop();
+    scannerControlsRef.current = null;
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -41,67 +37,39 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
     if (scanState !== "starting") return;
 
     let isActive = true;
-    let frameId = 0;
-    const BarcodeDetector = (window as WindowWithBarcodeDetector).BarcodeDetector;
 
     async function startScanner() {
-      if (!BarcodeDetector) {
-        setScanState("unsupported");
-        setScanMessage("Camera QR scanning is not supported in this browser.");
-        return;
-      }
-
       if (!navigator.mediaDevices?.getUserMedia) {
         setScanState("unsupported");
-        setScanMessage("Camera access is not available in this browser.");
+        setScanMessage("Camera access requires Safari camera permission and a secure HTTPS page.");
         return;
       }
 
+      const video = videoRef.current;
+      if (!video) return;
+
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
+        const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 250 });
+        const controls = await reader.decodeFromVideoDevice(undefined, video, (result) => {
+          const token = result?.getText().trim();
+          if (!token) return;
+
+          setWalletToken(token);
+          setStatus("idle");
+          setScanMessage("Wallet token scanned.");
+          setScanState("idle");
         });
+
         if (!isActive) {
-          stream.getTracks().forEach((track) => track.stop());
+          controls.stop();
           return;
         }
 
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (!video) return;
-
-        video.srcObject = stream;
-        await video.play();
+        scannerControlsRef.current = controls;
         setScanMessage("Point the camera at an attendee wallet QR.");
-
-        const detector = new BarcodeDetector({ formats: ["qr_code"] });
-        const scanFrame = async () => {
-          if (!isActive || !videoRef.current) return;
-
-          try {
-            if (videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-              const codes = await detector.detect(videoRef.current);
-              const token = codes[0]?.rawValue?.trim();
-              if (token) {
-                setWalletToken(token);
-                setStatus("idle");
-                setScanMessage("Wallet token scanned.");
-                setScanState("idle");
-                return;
-              }
-            }
-          } catch {
-            setScanMessage("Still looking for a QR code.");
-          }
-
-          frameId = window.requestAnimationFrame(scanFrame);
-        };
-
-        frameId = window.requestAnimationFrame(scanFrame);
       } catch {
         setScanState("error");
-        setScanMessage("Camera permission was blocked or no camera was found.");
+        setScanMessage("Camera permission was blocked or no camera was found. Manual token entry still works.");
       }
     }
 
@@ -109,7 +77,8 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
 
     return () => {
       isActive = false;
-      window.cancelAnimationFrame(frameId);
+      scannerControlsRef.current?.stop();
+      scannerControlsRef.current = null;
     };
   }, [scanState]);
 
