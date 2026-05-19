@@ -46,6 +46,20 @@ export type EventBartender = {
   created_at: string;
 };
 
+export type BartenderShift = {
+  id: string;
+  event_id: string;
+  bartender_id: string;
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+};
+
+export type BartenderShiftSummary = BartenderShift & {
+  bartender_name: string;
+  bartender_email: string | null;
+};
+
 export type Transaction = {
   id: string;
   event_id: string;

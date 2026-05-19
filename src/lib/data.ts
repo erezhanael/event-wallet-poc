@@ -1,6 +1,6 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
 import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTransactions, mockWallet } from "./mock-data";
-import type { DashboardMetrics, EventBartender, EventRecord, MenuItem, Transaction, Wallet } from "./types";
+import type { BartenderShift, BartenderShiftSummary, DashboardMetrics, EventBartender, EventRecord, MenuItem, Transaction, Wallet } from "./types";
 
 export async function getEvents(): Promise<EventRecord[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [mockEvent];
@@ -103,6 +103,76 @@ export async function getEventBartenders(eventId: string): Promise<EventBartende
     email: emailById.get(member.user_id) ?? null,
     full_name: profilesById.get(member.user_id)?.full_name ?? "Bartender",
     created_at: member.created_at,
+  }));
+}
+
+export async function getCurrentBartenderShift(eventId: string, bartenderId?: string | null): Promise<BartenderShift | null> {
+  if (!bartenderId) return null;
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("bartender_shifts")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("bartender_id", bartenderId)
+    .is("ended_at", null)
+    .maybeSingle();
+
+  if (error) return null;
+  return data;
+}
+
+export async function getBartenderShiftSummary(eventId: string): Promise<BartenderShiftSummary[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const bartender = mockProfiles.find((profile) => profile.role === "bartender");
+    return bartender
+      ? [
+          {
+            id: "mock-active-shift",
+            event_id: mockEvent.id,
+            bartender_id: bartender.id,
+            bartender_name: bartender.full_name,
+            bartender_email: "bartender@example.com",
+            started_at: new Date().toISOString(),
+            ended_at: null,
+            created_at: new Date().toISOString(),
+          },
+        ]
+      : [];
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data: shifts, error: shiftsError } = await supabase
+    .from("bartender_shifts")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("started_at", { ascending: false })
+    .limit(20);
+  if (shiftsError) return [];
+
+  const bartenderIds = Array.from(new Set((shifts ?? []).map((shift) => shift.bartender_id)));
+  if (!bartenderIds.length) return [];
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("users_profile")
+    .select("id, full_name")
+    .in("id", bartenderIds);
+  if (profilesError) throw profilesError;
+
+  const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const authUsers = await Promise.all(
+    bartenderIds.map(async (userId) => {
+      const { data } = await supabase.auth.admin.getUserById(userId);
+      return data.user;
+    }),
+  );
+  const emailById = new Map(authUsers.filter((user) => user !== null).map((user) => [user.id, user.email ?? null]));
+
+  return (shifts ?? []).map((shift) => ({
+    ...shift,
+    bartender_name: profilesById.get(shift.bartender_id)?.full_name ?? "Bartender",
+    bartender_email: emailById.get(shift.bartender_id) ?? null,
   }));
 }
 

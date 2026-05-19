@@ -1,10 +1,14 @@
 import { AppShell } from "@/components/app-shell";
 import { CheckoutClient } from "@/components/checkout-client";
-import { getMenuItems, getWallet } from "@/lib/data";
+import { ShiftControls } from "@/components/shift-controls";
+import { getCurrentBartenderShift, getMenuItems, getWallet } from "@/lib/data";
+import { cookies } from "next/headers";
 
 export default async function BartenderCheckoutPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const [menuItems, wallet] = await Promise.all([getMenuItems(eventId), getWallet(eventId)]);
+  const cookieStore = await cookies();
+  const bartenderId = cookieStore.get("event_wallet_user_id")?.value;
+  const [menuItems, wallet, currentShift] = await Promise.all([getMenuItems(eventId), getWallet(eventId), getCurrentBartenderShift(eventId, bartenderId)]);
 
   if (!wallet) return <AppShell><p>No wallet available.</p></AppShell>;
 
@@ -14,6 +18,7 @@ export default async function BartenderCheckoutPage({ params }: { params: Promis
         <h1 className="text-3xl font-semibold">Checkout</h1>
         <p className="mt-2 text-slate-600">Scan the QR code, tap items, and charge the wallet.</p>
       </div>
+      <ShiftControls eventId={eventId} initialShift={currentShift} />
       <CheckoutClient menuItems={menuItems} wallet={wallet} />
     </AppShell>
   );

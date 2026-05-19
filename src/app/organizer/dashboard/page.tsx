@@ -4,8 +4,9 @@ import { cookies } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { DashboardChart } from "@/components/dashboard-chart";
 import { EventCreator } from "@/components/event-creator";
+import { ShiftMonitor } from "@/components/shift-monitor";
 import { StatCard } from "@/components/stat-card";
-import { getDashboardMetrics, getEvents } from "@/lib/data";
+import { getBartenderShiftSummary, getDashboardMetrics, getEvents } from "@/lib/data";
 import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function OrganizerDashboardPage() {
   const events = organizerId ? allEvents.filter((currentEvent) => currentEvent.organizer_id === organizerId) : allEvents;
   const [event] = events;
   const metrics = event ? await getDashboardMetrics(event.id) : null;
+  const shifts = event ? await getBartenderShiftSummary(event.id) : [];
 
   return (
     <AppShell>
@@ -42,20 +44,23 @@ export default async function OrganizerDashboardPage() {
           </div>
           <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_360px]">
             <DashboardChart data={metrics.hourlySales} />
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="font-semibold">Top-Selling Items</h2>
-              <div className="mt-4 space-y-3">
-                {metrics.topItems.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-slate-500">{item.quantity} sold</p>
+            <div className="space-y-5">
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="font-semibold">Top-Selling Items</h2>
+                <div className="mt-4 space-y-3">
+                  {metrics.topItems.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-sm text-slate-500">{item.quantity} sold</p>
+                      </div>
+                      <p className="font-semibold">{formatMoney(item.revenueCents, event.currency)}</p>
                     </div>
-                    <p className="font-semibold">{formatMoney(item.revenueCents, event.currency)}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
+              <ShiftMonitor shifts={shifts} />
+            </div>
           </div>
         </>
       )}

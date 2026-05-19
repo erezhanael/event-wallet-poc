@@ -76,10 +76,24 @@ create table public.stripe_payments (
   created_at timestamptz not null default now()
 );
 
+create table public.bartender_shifts (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  bartender_id uuid not null references public.users_profile(id) on delete cascade,
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (ended_at is null or ended_at > started_at)
+);
+
 create index idx_event_members_user on public.event_members(user_id);
 create index idx_wallets_qr_token on public.wallets(qr_token);
 create index idx_transactions_event_created on public.transactions(event_id, created_at desc);
 create index idx_purchase_items_transaction on public.purchase_items(transaction_id);
+create index idx_bartender_shifts_event_started on public.bartender_shifts(event_id, started_at desc);
+create unique index idx_bartender_shifts_one_active
+  on public.bartender_shifts(event_id, bartender_id)
+  where ended_at is null;
 
 create or replace function public.is_event_member(p_event_id uuid, p_role text default null)
 returns boolean
@@ -112,6 +126,7 @@ alter table public.menu_items enable row level security;
 alter table public.transactions enable row level security;
 alter table public.purchase_items enable row level security;
 alter table public.stripe_payments enable row level security;
+alter table public.bartender_shifts enable row level security;
 
 create policy "profiles_select_own" on public.users_profile
   for select using (id = auth.uid());
@@ -189,6 +204,26 @@ create policy "purchase_items_insert_bartender_purchase" on public.purchase_item
 create policy "stripe_payments_select_owner_or_organizer" on public.stripe_payments
   for select using (
     exists (select 1 from public.wallets w where w.id = wallet_id and w.user_id = auth.uid())
+    or public.is_event_organizer(event_id)
+  );
+
+create policy "shifts_select_staff_or_organizer" on public.bartender_shifts
+  for select using (
+    bartender_id = auth.uid()
+    or public.is_event_member(event_id, 'bartender')
+    or public.is_event_organizer(event_id)
+  );
+create policy "shifts_insert_own_bartender" on public.bartender_shifts
+  for insert with check (
+    bartender_id = auth.uid()
+    and public.is_event_member(event_id, 'bartender')
+  );
+create policy "shifts_update_own_bartender_or_organizer" on public.bartender_shifts
+  for update using (
+    bartender_id = auth.uid()
+    or public.is_event_organizer(event_id)
+  ) with check (
+    bartender_id = auth.uid()
     or public.is_event_organizer(event_id)
   );
 
