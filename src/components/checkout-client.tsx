@@ -5,14 +5,17 @@ import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { Camera, CheckCircle, Minus, Search, ShoppingCart, Trash2, X, XCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatMoney } from "@/lib/money";
-import type { MenuItem, Wallet } from "@/lib/types";
+import type { MenuItem } from "@/lib/types";
 
 type Cart = Record<string, number>;
 type ScanState = "idle" | "starting" | "unsupported" | "error";
+type WalletLookupState = "empty" | "loading" | "found" | "missing" | "error";
 
-export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; wallet: Wallet }) {
-  const [walletToken, setWalletToken] = useState(wallet.qr_token);
-  const [balance, setBalance] = useState(wallet.balance_cents);
+export function CheckoutClient({ eventId, currency, menuItems }: { eventId: string; currency?: string; menuItems: MenuItem[] }) {
+  const [walletToken, setWalletToken] = useState("");
+  const [balance, setBalance] = useState<number | null>(null);
+  const [walletStatus, setWalletStatus] = useState<string | null>(null);
+  const [lookupState, setLookupState] = useState<WalletLookupState>("empty");
   const [cart, setCart] = useState<Cart>({});
   const [status, setStatus] = useState<"idle" | "success" | "failure">("idle");
   const [message, setMessage] = useState("");
@@ -25,6 +28,22 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
     () => menuItems.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price_cents, 0),
     [cart, menuItems],
   );
+  const canCharge = total > 0 && lookupState === "found" && walletStatus === "active" && balance !== null;
+
+  function updateWalletToken(nextToken: string) {
+    setWalletToken(nextToken);
+    setStatus("idle");
+    setMessage("");
+    if (!nextToken.trim()) {
+      setBalance(null);
+      setWalletStatus(null);
+      setLookupState("empty");
+    } else {
+      setBalance(null);
+      setWalletStatus(null);
+      setLookupState("loading");
+    }
+  }
 
   function stopCamera() {
     scannerControlsRef.current?.stop();
@@ -55,8 +74,7 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
           const token = result?.getText().trim();
           if (!token) return;
 
-          setWalletToken(token);
-          setStatus("idle");
+          updateWalletToken(token);
           setScanMessage("Wallet token scanned.");
           setScanState("idle");
         });
@@ -89,6 +107,44 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
   }, [scanState]);
 
   useEffect(() => stopCamera, []);
+
+  useEffect(() => {
+    const token = walletToken.trim();
+    if (!token) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setLookupState("loading");
+      try {
+        const params = new URLSearchParams({ eventId, walletToken: token });
+        const response = await fetch(`/api/wallet?${params.toString()}`, { signal: controller.signal });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setBalance(null);
+          setWalletStatus(null);
+          setLookupState(response.status === 404 ? "missing" : "error");
+          return;
+        }
+
+        setBalance(payload.balance_cents);
+        setWalletStatus(payload.status);
+        setLookupState("found");
+      } catch {
+        if (controller.signal.aborted) return;
+        setBalance(null);
+        setWalletStatus(null);
+        setLookupState("error");
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [eventId, walletToken]);
 
   function addItem(id: string) {
     setStatus("idle");
@@ -127,6 +183,21 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
 
   async function charge() {
     if (total <= 0) return;
+    if (!walletToken.trim()) {
+      setStatus("failure");
+      setMessage("Scan or enter a wallet token first");
+      return;
+    }
+    if (lookupState !== "found" || balance === null) {
+      setStatus("failure");
+      setMessage("Wallet not loaded");
+      return;
+    }
+    if (walletStatus !== "active") {
+      setStatus("failure");
+      setMessage("Wallet is not active");
+      return;
+    }
     if (balance < total) {
       setStatus("failure");
       setMessage("Balance too low");
@@ -138,7 +209,7 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         walletToken,
-        eventId: wallet.event_id,
+        eventId,
         items: Object.entries(cart)
           .filter(([, quantity]) => quantity > 0)
           .map(([menuItemId, quantity]) => ({ menuItemId, quantity })),
@@ -166,7 +237,7 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
             <Search size={18} className="shrink-0 text-cyan-200" />
             <input
               value={walletToken}
-              onChange={(event) => setWalletToken(event.target.value)}
+              onChange={(event) => updateWalletToken(event.target.value)}
               className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
               placeholder="Scan or enter wallet token"
             />
@@ -206,19 +277,28 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
             >
               <span className="neon-badge w-fit border-fuchsia-300/25 bg-fuchsia-300/[0.10] text-[10px] text-fuchsia-100">{item.category}</span>
               <span className="mt-4 block text-base font-black leading-tight text-white">{item.name}</span>
-              <span className="mt-5 block text-2xl font-black tracking-tight text-emerald-200">{formatMoney(item.price_cents)}</span>
+              <span className="mt-5 block text-2xl font-black tracking-tight text-emerald-200">{formatMoney(item.price_cents, currency)}</span>
             </motion.button>
           ))}
         </div>
       </section>
-      <aside className="glass-card sticky bottom-3 top-24 h-fit p-4">
+      <aside className="glass-card h-fit p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-black text-white">Checkout</h2>
           <ShoppingCart size={18} className="text-emerald-200" />
         </div>
         <div className="shine mt-4 overflow-hidden rounded-3xl border border-emerald-300/20 bg-emerald-300/[0.10] p-4 text-white shadow-[0_0_40px_rgba(34,197,94,0.16)]">
-          <p className="text-sm text-emerald-100/75">Wallet balance</p>
-          <p className="mt-1 text-4xl font-black tracking-tight">{formatMoney(balance)}</p>
+          <p className="text-sm text-emerald-100/75">Wallet</p>
+          {lookupState === "empty" && <p className="mt-2 text-sm font-semibold text-white/70">Scan QR or enter token to show balance.</p>}
+          {lookupState === "loading" && <p className="mt-2 text-sm font-semibold text-cyan-100">Loading wallet...</p>}
+          {lookupState === "missing" && <p className="mt-2 text-sm font-semibold text-red-100">No wallet found for this token.</p>}
+          {lookupState === "error" && <p className="mt-2 text-sm font-semibold text-red-100">Could not load wallet.</p>}
+          {lookupState === "found" && (
+            <>
+              <p className="mt-1 text-4xl font-black tracking-tight">{formatMoney(balance ?? 0, currency)}</p>
+              <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-white/50">{walletStatus}</p>
+            </>
+          )}
         </div>
         <div className="mt-4 space-y-2">
           <AnimatePresence initial={false}>
@@ -235,7 +315,7 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-white">{item.name}</p>
                   <p className="text-xs text-white/45">
-                    x {cart[item.id]} · {formatMoney(item.price_cents * cart[item.id])}
+                    x {cart[item.id]} · {formatMoney(item.price_cents * cart[item.id], currency)}
                   </p>
                 </div>
                 <button
@@ -265,13 +345,13 @@ export function CheckoutClient({ menuItems, wallet }: { menuItems: MenuItem[]; w
           <div className="flex items-center justify-between text-lg font-black text-white">
             <span>Total</span>
             <motion.span key={total} initial={{ scale: 0.92, opacity: 0.6 }} animate={{ scale: 1, opacity: 1 }}>
-              {formatMoney(total)}
+              {formatMoney(total, currency)}
             </motion.span>
           </div>
           <button
             onClick={charge}
             className="neon-button mt-4 h-14 w-full disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.06] disabled:text-white/35 disabled:shadow-none"
-            disabled={total === 0}
+            disabled={!canCharge}
           >
             Charge Wallet
           </button>

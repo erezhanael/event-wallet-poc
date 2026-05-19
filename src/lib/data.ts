@@ -26,6 +26,22 @@ export async function getWallet(eventId: string): Promise<Wallet | null> {
   return data;
 }
 
+export async function getWalletByToken(eventId: string, walletToken: string): Promise<Wallet | null> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return walletToken === mockWallet.qr_token && eventId === mockWallet.event_id ? mockWallet : null;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("qr_token", walletToken)
+    .maybeSingle();
+  if (error) return null;
+  return data;
+}
+
 export async function getMenuItems(eventId: string): Promise<MenuItem[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockMenuItems;
   const supabase = createServiceSupabaseClient();
