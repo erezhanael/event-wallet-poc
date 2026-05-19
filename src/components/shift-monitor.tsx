@@ -15,34 +15,34 @@ export function ShiftMonitor({ shifts }: { shifts: BartenderShiftSummary[] }) {
   const activeCount = shifts.filter((shift) => !shift.ended_at).length;
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="glass-card p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Clock size={18} className="text-emerald-700" />
-          <h2 className="font-semibold">Bartender Shifts</h2>
+          <Clock size={18} className="text-emerald-200" />
+          <h2 className="font-black text-white">Bartender Shifts</h2>
         </div>
-        <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{activeCount} active</span>
+        <span className="neon-badge border-emerald-300/30 bg-emerald-300/[0.10] text-emerald-100">{activeCount} active</span>
       </div>
       <div className="mt-4 space-y-3">
         {shifts.map((shift) => (
-          <div key={shift.id} className="rounded-lg bg-slate-50 p-3">
+          <div key={shift.id} className="rounded-2xl border border-white/10 bg-white/[0.05] p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-medium">{shift.bartender_name}</p>
-                <p className="mt-1 break-all text-xs text-slate-500">{shift.bartender_email ?? "Email unavailable"}</p>
+                <p className="font-semibold text-white">{shift.bartender_name}</p>
+                <p className="mt-1 break-all text-xs text-white/45">{shift.bartender_email ?? "Email unavailable"}</p>
               </div>
-              <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-semibold ${shift.ended_at ? "bg-slate-200 text-slate-600" : "bg-emerald-100 text-emerald-800"}`}>
+              <span className={`shrink-0 rounded-full border px-2 py-1 text-xs font-bold ${shift.ended_at ? "border-white/10 bg-white/[0.08] text-white/50" : "border-emerald-300/30 bg-emerald-300/[0.12] text-emerald-100"}`}>
                 {shift.ended_at ? "Ended" : "Active"}
               </span>
             </div>
-            <div className="mt-3 grid gap-1 text-sm text-slate-600">
+            <div className="mt-3 grid gap-1 text-sm text-white/50">
               <span>Started {new Date(shift.started_at).toLocaleString()}</span>
               {shift.ended_at && <span>Ended {new Date(shift.ended_at).toLocaleString()}</span>}
-              <span className="font-medium text-slate-950">Duration {durationLabel(shift.started_at, shift.ended_at)}</span>
+              <span className="font-bold text-cyan-100">Duration {durationLabel(shift.started_at, shift.ended_at)}</span>
             </div>
           </div>
         ))}
-        {shifts.length === 0 && <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">No shift activity yet.</p>}
+        {shifts.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.05] p-3 text-sm text-white/55">No shift activity yet.</p>}
       </div>
     </section>
   );

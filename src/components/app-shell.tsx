@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CreditCard, LayoutDashboard, Martini, QrCode } from "lucide-react";
 import { cookies } from "next/headers";
 import { isUserRole } from "@/lib/auth";
+import { MotionPanel } from "./motion-primitives";
 import { LogoutButton } from "./logout-button";
 
 const nav = [
@@ -16,21 +17,21 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const visibleNav = isUserRole(role) ? nav.filter((item) => item.role === role) : [];
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] text-slate-950">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div className="nightlife-bg min-h-screen text-white">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/35 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="grid size-9 place-items-center rounded-lg bg-emerald-600 text-white">
+          <Link href="/" className="group flex items-center gap-2 font-semibold tracking-tight text-white">
+            <span className="grid size-9 place-items-center rounded-lg border border-emerald-300/40 bg-emerald-300/[0.15] text-emerald-200 shadow-[0_0_28px_rgba(56,255,156,0.22)]">
               <CreditCard size={18} />
             </span>
-            Event Wallet
+            <span>Event Wallet</span>
           </Link>
           <nav className="hidden gap-1 sm:flex">
             {visibleNav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/70 hover:border-emerald-300/40 hover:bg-emerald-300/10 hover:text-white"
               >
                 <item.icon size={16} />
                 {item.label}
@@ -40,22 +41,22 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
         {visibleNav.length > 0 && (
-          <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto border-t border-slate-100 px-4 py-2 sm:hidden">
+          <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto border-t border-white/10 px-4 py-2 pb-3 sm:hidden">
             {visibleNav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex h-11 shrink-0 items-center gap-2 rounded-md bg-slate-100 px-3 text-sm font-medium text-slate-700"
+                className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(0,0,0,0.22)]"
               >
                 <item.icon size={16} />
                 {item.label}
               </Link>
             ))}
-            <LogoutButton className="h-11 shrink-0 bg-slate-100 text-slate-700" />
+            <LogoutButton className="h-11 shrink-0 rounded-full border border-white/10 bg-white/10 text-white" />
           </nav>
         )}
       </header>
-      <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
+      <MotionPanel className="mx-auto w-full max-w-6xl px-4 py-6 pb-28 sm:pb-8">{children}</MotionPanel>
     </div>
   );
 }

@@ -17,6 +17,10 @@ type EditingDraft = Draft & {
 };
 
 const emptyDraft: Draft = { name: "", category: "", price: "" };
+const inputClass =
+  "mt-1 h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald-300/60";
+const compactInputClass =
+  "h-10 w-full rounded-2xl border border-white/10 bg-black/25 px-3 text-sm text-white outline-none focus:border-emerald-300/60";
 
 function centsToPrice(priceCents: number) {
   return (priceCents / 100).toFixed(2);
@@ -152,33 +156,33 @@ export function MenuEditor({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="glass-card p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_160px_140px_auto]">
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-semibold text-white/70">
             Item
             <input
               value={draft.name}
               onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+              className={inputClass}
               placeholder="Gin Tonic"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-semibold text-white/70">
             Category
             <input
               value={draft.category}
               onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
-              className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+              className={inputClass}
               placeholder="Cocktail"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-semibold text-white/70">
             Price
             <input
               inputMode="decimal"
               value={draft.price}
               onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
-              className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+              className={inputClass}
               placeholder="42.00"
             />
           </label>
@@ -186,69 +190,69 @@ export function MenuEditor({
             type="button"
             onClick={createItem}
             disabled={isSaving}
-            className="flex h-11 items-center justify-center gap-2 self-end rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="neon-button flex h-11 items-center justify-center gap-2 self-end px-4 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={17} />
             Add
           </button>
         </div>
-        {message && <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600">{message}</p>}
+        {message && <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-sm text-white/60">{message}</p>}
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="hidden grid-cols-[1fr_140px_120px_90px_190px] border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-500 md:grid">
+      <section className="glass-card overflow-hidden">
+        <div className="hidden grid-cols-[1fr_140px_120px_90px_190px] border-b border-white/10 px-4 py-3 text-sm font-bold text-white/45 md:grid">
           <span>Item</span>
           <span>Category</span>
           <span>Price</span>
           <span>Status</span>
           <span>Actions</span>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-white/10">
           {sortedItems.map((item) => {
             const isEditing = editingId === item.id && editingDraft;
 
             return (
-              <div key={item.id} className={`grid gap-3 px-4 py-4 md:grid-cols-[1fr_140px_120px_90px_190px] md:items-center ${item.active ? "" : "bg-slate-50"}`}>
+              <div key={item.id} className={`grid gap-3 px-4 py-4 md:grid-cols-[1fr_140px_120px_90px_190px] md:items-center ${item.active ? "" : "bg-white/[0.03]"}`}>
                 <div className="min-w-0">
-                  <span className="mb-1 block text-xs font-semibold uppercase text-slate-500 md:hidden">Item</span>
+                  <span className="mb-1 block text-xs font-bold uppercase text-white/40 md:hidden">Item</span>
                   {isEditing ? (
                     <input
                       value={editingDraft.name}
                       onChange={(event) => setEditingDraft((current) => (current ? { ...current, name: event.target.value } : current))}
-                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+                      className={compactInputClass}
                     />
                   ) : (
-                    <p className={`font-medium ${item.active ? "text-slate-950" : "text-slate-500"}`}>{item.name}</p>
+                    <p className={`font-semibold ${item.active ? "text-white" : "text-white/40"}`}>{item.name}</p>
                   )}
                 </div>
                 <div>
-                  <span className="mb-1 block text-xs font-semibold uppercase text-slate-500 md:hidden">Category</span>
+                  <span className="mb-1 block text-xs font-bold uppercase text-white/40 md:hidden">Category</span>
                   {isEditing ? (
                     <input
                       value={editingDraft.category}
                       onChange={(event) => setEditingDraft((current) => (current ? { ...current, category: event.target.value } : current))}
-                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+                      className={compactInputClass}
                     />
                   ) : (
-                    <span className="text-sm text-slate-700">{item.category}</span>
+                    <span className="text-sm text-white/60">{item.category}</span>
                   )}
                 </div>
                 <div>
-                  <span className="mb-1 block text-xs font-semibold uppercase text-slate-500 md:hidden">Price</span>
+                  <span className="mb-1 block text-xs font-bold uppercase text-white/40 md:hidden">Price</span>
                   {isEditing ? (
                     <input
                       inputMode="decimal"
                       value={editingDraft.price}
                       onChange={(event) => setEditingDraft((current) => (current ? { ...current, price: event.target.value } : current))}
-                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+                      className={compactInputClass}
                     />
                   ) : (
-                    <span className="text-sm font-semibold">{formatMoney(item.price_cents, currency)}</span>
+                    <span className="text-sm font-black text-emerald-200">{formatMoney(item.price_cents, currency)}</span>
                   )}
                 </div>
                 <div>
-                  <span className="mb-1 block text-xs font-semibold uppercase text-slate-500 md:hidden">Status</span>
-                  <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${item.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
+                  <span className="mb-1 block text-xs font-bold uppercase text-white/40 md:hidden">Status</span>
+                  <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-bold ${item.active ? "border-emerald-300/30 bg-emerald-300/[0.10] text-emerald-100" : "border-white/10 bg-white/[0.08] text-white/45"}`}>
                     {item.active ? "Active" : "Hidden"}
                   </span>
                 </div>
@@ -259,7 +263,7 @@ export function MenuEditor({
                         type="button"
                         onClick={() => saveItem(item)}
                         disabled={isSaving}
-                        className="flex h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                        className="flex h-10 items-center gap-2 rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.14] px-3 text-sm font-bold text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Save size={16} />
                         Save
@@ -267,7 +271,7 @@ export function MenuEditor({
                       <button
                         type="button"
                         onClick={cancelEditing}
-                        className="grid size-10 place-items-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                        className="grid size-10 place-items-center rounded-2xl border border-white/10 text-white/60 hover:bg-white/[0.08]"
                         aria-label={`Cancel editing ${item.name}`}
                         title={`Cancel editing ${item.name}`}
                       >
@@ -279,7 +283,7 @@ export function MenuEditor({
                       <button
                         type="button"
                         onClick={() => startEditing(item)}
-                        className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        className="flex h-10 items-center gap-2 rounded-2xl border border-white/10 px-3 text-sm font-bold text-white/70 hover:bg-white/[0.08]"
                       >
                         <Pencil size={16} />
                         Edit
@@ -288,7 +292,7 @@ export function MenuEditor({
                         type="button"
                         onClick={() => saveItem(item, { active: !item.active })}
                         disabled={isSaving}
-                        className="flex h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        className="flex h-10 items-center gap-2 rounded-2xl border border-white/10 px-3 text-sm font-bold text-white/70 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {item.active ? <EyeOff size={16} /> : <Eye size={16} />}
                         {item.active ? "Hide" : "Show"}

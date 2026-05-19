@@ -22,7 +22,7 @@ export function LogoutButton({ className = "" }: { className?: string }) {
     <button
       type="button"
       onClick={logout}
-      className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 ${className}`}
+      className={`flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white ${className}`}
     >
       <LogOut size={16} />
       Logout

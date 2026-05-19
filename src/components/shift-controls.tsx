@@ -60,14 +60,14 @@ export function ShiftControls({ eventId, initialShift }: { eventId: string; init
   }
 
   return (
-    <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="glass-card-soft mb-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Clock size={18} className="text-emerald-700" />
-            <h2 className="font-semibold">Shift</h2>
+            <Clock size={18} className="text-emerald-200" />
+            <h2 className="font-black text-white">Shift</h2>
           </div>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-white/55">
             {shift ? `Started ${new Date(shift.started_at).toLocaleString()} (${elapsed})` : message}
           </p>
         </div>
@@ -76,7 +76,7 @@ export function ShiftControls({ eventId, initialShift }: { eventId: string; init
             type="button"
             onClick={() => updateShift("end")}
             disabled={isSaving}
-            className="flex h-11 items-center justify-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-red-300/30 bg-red-300/[0.10] px-4 text-sm font-bold text-red-100 hover:border-red-300/60 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <LogOut size={17} />
             End Shift
@@ -86,14 +86,14 @@ export function ShiftControls({ eventId, initialShift }: { eventId: string; init
             type="button"
             onClick={() => updateShift("start")}
             disabled={isSaving}
-            className="flex h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="neon-button flex h-11 items-center justify-center gap-2 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             <LogIn size={17} />
             Start Shift
           </button>
         )}
       </div>
-      {shift && <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
+      {shift && <p className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.10] p-3 text-sm text-emerald-100">{message}</p>}
     </section>
   );
 }

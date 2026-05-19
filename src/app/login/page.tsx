@@ -3,11 +3,11 @@ import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
   return (
-    <main className="grid min-h-screen place-items-center bg-[#f6f7f9] px-4 py-8 text-slate-950">
+    <main className="nightlife-bg grid min-h-screen place-items-center px-4 py-8 text-white">
       <Suspense
         fallback={
-          <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-slate-600">Loading login...</p>
+          <section className="glass-card w-full max-w-md rounded-3xl p-6">
+            <p className="text-sm text-white/60">Loading login...</p>
           </section>
         }
       >

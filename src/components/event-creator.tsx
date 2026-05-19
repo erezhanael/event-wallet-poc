@@ -58,58 +58,58 @@ export function EventCreator() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="glass-card p-4">
       <div className="mb-4 flex items-center gap-2">
-        <CalendarPlus size={19} className="text-emerald-700" />
-        <h2 className="font-semibold">Add Event</h2>
+        <CalendarPlus size={19} className="text-emerald-200" />
+        <h2 className="font-black text-white">Add Event</h2>
       </div>
       <div className="grid gap-3">
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-semibold text-white/70">
           Event name
           <input
             value={draft.name}
             onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
-            className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+            className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald-300/60"
             placeholder="Summer Rooftop"
           />
         </label>
         <div className="grid gap-3 sm:grid-cols-[1fr_110px]">
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-semibold text-white/70">
             Event code
             <input
               value={draft.eventCode}
               onChange={(event) => setDraft((current) => ({ ...current, eventCode: event.target.value.toUpperCase() }))}
-              className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 font-mono text-sm uppercase outline-none focus:border-emerald-500"
+              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-3 font-mono text-sm uppercase text-white outline-none placeholder:text-white/35 focus:border-emerald-300/60"
               placeholder="SUMMER-26"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-semibold text-white/70">
             Currency
             <input
               value={draft.currency}
               onChange={(event) => setDraft((current) => ({ ...current, currency: event.target.value.toUpperCase() }))}
-              className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 font-mono text-sm uppercase outline-none focus:border-emerald-500"
+              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-3 font-mono text-sm uppercase text-white outline-none focus:border-emerald-300/60"
               maxLength={3}
             />
           </label>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-semibold text-white/70">
             Starts
             <input
               type="datetime-local"
               value={draft.startTime}
               onChange={(event) => setDraft((current) => ({ ...current, startTime: event.target.value }))}
-              className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-3 text-sm text-white outline-none focus:border-emerald-300/60"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-semibold text-white/70">
             Ends
             <input
               type="datetime-local"
               value={draft.endTime}
               onChange={(event) => setDraft((current) => ({ ...current, endTime: event.target.value }))}
-              className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-500"
+              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-3 text-sm text-white outline-none focus:border-emerald-300/60"
             />
           </label>
         </div>
@@ -117,13 +117,13 @@ export function EventCreator() {
           type="button"
           onClick={createEvent}
           disabled={isSaving}
-          className="flex h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="neon-button flex h-11 items-center justify-center gap-2 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-50"
         >
           <CalendarPlus size={17} />
           Create Event
         </button>
       </div>
-      {message && <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600">{message}</p>}
+      {message && <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-sm text-white/60">{message}</p>}
     </section>
   );
 }

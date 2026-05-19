@@ -16,15 +16,15 @@ export function QrWallet({ token }: { token: string }) {
   }, [token]);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 text-center shadow-sm">
-      <div className="mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-lg bg-slate-50">
+    <div className="glass-card rounded-[2rem] p-4 text-center">
+      <div className="scan-frame mx-auto grid aspect-square w-full max-w-[280px] place-items-center rounded-[1.6rem] border border-emerald-300/20 bg-black/35 shadow-[0_0_42px_rgba(56,255,156,0.16)]">
         {qr ? (
-          <Image src={qr} alt="Wallet QR code" width={280} height={280} unoptimized className="size-full p-3" />
+          <Image src={qr} alt="Wallet QR code" width={280} height={280} unoptimized className="size-full rounded-3xl p-5" />
         ) : (
-          <span className="text-sm text-slate-500">Generating</span>
+          <span className="text-sm text-white/50">Generating</span>
         )}
       </div>
-      <p className="mt-3 break-all font-mono text-xs text-slate-500">{token}</p>
+      <p className="mt-3 break-all font-mono text-xs text-white/45">{token}</p>
     </div>
   );
 }
