@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { LockKeyhole, Mail, QrCode, RadioTower, Sparkles } from "lucide-react";
+import { ArrowLeft, LockKeyhole, Mail, QrCode, RadioTower, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
@@ -142,6 +143,13 @@ export function LoginForm() {
         </button>
       </div>
       <p className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3 text-sm text-white/[0.64]">{message}</p>
+      <Link
+        href="/"
+        className="mt-3 flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm font-black text-white/75 transition hover:bg-white/[0.12] hover:text-white"
+      >
+        <ArrowLeft size={16} />
+        Back to Homepage
+      </Link>
       </motion.div>
     </section>
   );
