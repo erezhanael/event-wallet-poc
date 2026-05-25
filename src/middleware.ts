@@ -7,6 +7,14 @@ export function middleware(request: NextRequest) {
   const signedInRole = isUserRole(role) ? role : null;
 
   if (pathname === "/login" && signedInRole) {
+    const requestedNext = request.nextUrl.searchParams.get("next");
+    const requestedRole = requestedNext?.startsWith("/") ? roleForPath(requestedNext) : null;
+    if (requestedRole && requestedRole !== signedInRole) {
+      return NextResponse.next();
+    }
+    if (requestedNext && requestedRole && requestedRole === signedInRole) {
+      return NextResponse.redirect(new URL(requestedNext, request.url));
+    }
     return NextResponse.redirect(new URL(roleHome[signedInRole], request.url));
   }
 
