@@ -23,7 +23,9 @@ export default async function PublicEventPage({ params }: { params: Promise<{ ev
     );
   }
 
-  const attendeeTicketHref = `/login?next=${encodeURIComponent(`/attendee/events/${event.id}/tickets`)}`;
+  const attendeeTicketPath = `/attendee/events/${event.id}/tickets`;
+  const attendeeLoginHref = `/login?next=${encodeURIComponent(attendeeTicketPath)}`;
+  const attendeeRegisterHref = `/register?eventId=${encodeURIComponent(event.id)}&next=${encodeURIComponent(attendeeTicketPath)}`;
 
   return (
     <PublicShell>
@@ -79,8 +81,11 @@ export default async function PublicEventPage({ params }: { params: Promise<{ ev
             })}
             {ticketTypes.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-sm text-white/55">Tickets are coming soon.</p>}
           </div>
-          <Link href={attendeeTicketHref} className="neon-button mt-5 flex h-12 items-center justify-center px-4 text-sm">
-            Login to Get Ticket
+          <Link href={attendeeRegisterHref} className="neon-button mt-5 flex h-12 items-center justify-center px-4 text-sm">
+            Get Ticket
+          </Link>
+          <Link href={attendeeLoginHref} className="mt-3 flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.08] px-4 text-sm font-black text-white/75 hover:bg-white/[0.12]">
+            Already have an account?
           </Link>
         </aside>
       </section>
