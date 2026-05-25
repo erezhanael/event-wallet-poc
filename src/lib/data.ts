@@ -351,14 +351,16 @@ export async function getBartenderShiftSummary(eventId: string): Promise<Bartend
   }));
 }
 
-export async function getTransactions(eventId: string): Promise<Transaction[]> {
+export async function getTransactions(eventId: string, walletId?: string | null): Promise<Transaction[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockTransactions;
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("transactions")
     .select("*")
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
+  if (walletId) query = query.eq("wallet_id", walletId);
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }

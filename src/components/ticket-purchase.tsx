@@ -23,27 +23,8 @@ export function TicketPurchase({
 
   async function buyTicket(ticketTypeId: string) {
     setIsSavingId(ticketTypeId);
-    setMessage("Issuing ticket...");
-
-    try {
-      const response = await fetch("/api/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, ticketTypeId }),
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        setMessage(payload.error ?? "Could not issue ticket.");
-        return;
-      }
-
-      setMessage("Ticket issued.");
-      router.push(`/attendee/wallet/${eventId}?ticket=purchased`);
-      router.refresh();
-    } finally {
-      setIsSavingId(null);
-    }
+    setMessage("Opening ticket checkout...");
+    router.push(`/attendee/events/${eventId}/tickets/mock-checkout?ticketTypeId=${encodeURIComponent(ticketTypeId)}`);
   }
 
   return (

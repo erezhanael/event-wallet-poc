@@ -28,12 +28,12 @@ export default async function WalletPage({
   const { checkout, ticket } = await searchParams;
   const cookieStore = await cookies();
   const attendeeId = cookieStore.get("event_wallet_user_id")?.value;
-  const [event, wallet, transactions, tickets] = await Promise.all([
+  const [event, wallet, tickets] = await Promise.all([
     getEvent(eventId),
     getWallet(eventId, attendeeId),
-    getTransactions(eventId),
     getAttendeeTickets(eventId, attendeeId),
   ]);
+  const transactions = wallet ? await getTransactions(eventId, wallet.id) : [];
   const checkoutMessage = checkout ? checkoutMessages[checkout] : null;
   const ticketMessage = ticket ? ticketMessages[ticket] : null;
 
