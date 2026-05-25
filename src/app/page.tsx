@@ -47,12 +47,16 @@ export default async function Home() {
           </div>
         </div>
 
-        <aside className="glass-card shine p-5">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-white/45">Featured</p>
+        <aside className="event-poster shine rounded-[2rem] p-5">
+          <div className="relative z-10 flex items-start justify-between">
+            <p className="rounded-full border border-white/15 bg-black/35 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/70">Featured</p>
+            <span className="rounded-full border border-emerald-300/30 bg-emerald-300/[0.12] px-3 py-1 text-xs font-black text-emerald-100">Rooftop</span>
+          </div>
           {featuredEvent ? (
-            <>
-              <h2 className="premium-heading mt-4 text-4xl">{featuredEvent.name}</h2>
-              <div className="mt-5 space-y-3 text-sm text-white/65">
+            <div className="relative z-10 flex min-h-[27rem] flex-col justify-end">
+              <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.28em] text-cyan-100">{featuredEvent.event_code}</p>
+              <h2 className="premium-heading text-5xl font-black leading-none">{featuredEvent.name}</h2>
+              <div className="mt-5 space-y-3 text-sm text-white/72">
                 <p className="flex items-center gap-2">
                   <CalendarDays size={16} />
                   {new Date(featuredEvent.start_time).toLocaleString()}
@@ -62,7 +66,7 @@ export default async function Home() {
                   {featuredEvent.ticketsAvailable} tickets available
                 </p>
               </div>
-              <div className="mt-6 rounded-3xl border border-emerald-300/20 bg-emerald-300/[0.10] p-4">
+              <div className="mt-6 rounded-3xl border border-emerald-300/25 bg-black/35 p-4 backdrop-blur">
                 <p className="text-sm text-emerald-100/70">Tickets from</p>
                 <p className="mt-1 text-4xl font-black text-white">
                   {featuredEvent.lowestTicketPriceCents === null ? "Soon" : formatMoney(featuredEvent.lowestTicketPriceCents, featuredEvent.currency)}
@@ -71,7 +75,7 @@ export default async function Home() {
               <Link href={`/events/${featuredEvent.id}`} className="neon-button mt-5 flex h-12 items-center justify-center px-4 text-sm">
                 View Tickets
               </Link>
-            </>
+            </div>
           ) : (
             <p className="mt-4 text-white/60">No upcoming events are published yet.</p>
           )}
@@ -85,27 +89,41 @@ export default async function Home() {
             <h2 className="premium-heading mt-3 text-4xl">Events</h2>
           </div>
         </div>
-        <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4">
-          {events.map((event) => (
-            <Link key={event.id} href={`/events/${event.id}`} className="ticket-card glass-card shine min-h-80 w-[82vw] max-w-sm shrink-0 snap-start p-5 sm:w-[360px]">
-              <div className="flex items-start justify-between gap-3">
-                <span className="grid size-12 place-items-center rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.12] text-emerald-100">
+        <div className="-mx-4 flex snap-x gap-5 overflow-x-auto px-4 pb-6">
+          {events.map((event, index) => (
+            <Link key={event.id} href={`/events/${event.id}`} className="event-poster shine flex w-[84vw] max-w-[390px] shrink-0 snap-start flex-col justify-between rounded-[2rem] p-5 sm:w-[390px]">
+              <div className="relative z-10 flex items-start justify-between gap-3">
+                <span className="grid size-12 place-items-center rounded-2xl border border-white/15 bg-black/35 text-emerald-100 backdrop-blur">
                   <Ticket size={22} />
                 </span>
-                <span className="rounded-full border border-white/15 bg-black/30 px-3 py-1 font-mono text-xs text-white/70">{event.event_code}</span>
+                <span className="rounded-full border border-white/15 bg-black/35 px-3 py-1 font-mono text-xs text-white/75">{event.event_code}</span>
               </div>
-              <div className="mt-16">
-                <h3 className="premium-heading text-3xl">{event.name}</h3>
-                <p className="mt-3 flex items-center gap-2 text-sm text-white/60">
+
+              <div className="relative z-10 mt-14">
+                <div className="mb-5 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-fuchsia-300/25 bg-fuchsia-300/[0.12] px-3 py-1 text-xs font-black text-fuchsia-100">Nightlife</span>
+                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/[0.12] px-3 py-1 text-xs font-black text-cyan-100">Wallet Ready</span>
+                  <span className="rounded-full border border-emerald-300/25 bg-emerald-300/[0.12] px-3 py-1 text-xs font-black text-emerald-100">#{String(index + 1).padStart(2, "0")}</span>
+                </div>
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.28em] text-white/50">Live event</p>
+                <h3 className="premium-heading mt-2 text-4xl font-black leading-none">{event.name}</h3>
+                <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-white/72">
                   <CalendarDays size={16} />
                   {new Date(event.start_time).toLocaleString()}
                 </p>
-                <div className="mt-5 flex items-center justify-between">
-                  <span className="text-sm font-bold text-white/55">
+                <div className="mt-6 rounded-3xl border border-white/12 bg-black/35 p-4 backdrop-blur">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">Access</p>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <span className="text-2xl font-black text-white">
+                      {event.lowestTicketPriceCents === null ? "Soon" : formatMoney(event.lowestTicketPriceCents, event.currency)}
+                    </span>
+                    <span className="text-sm font-black text-emerald-200">Tickets</span>
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-white/45">
                     {event.lowestTicketPriceCents === null ? "Tickets soon" : `From ${formatMoney(event.lowestTicketPriceCents, event.currency)}`}
-                  </span>
-                  <span className="text-sm font-black text-emerald-200">View</span>
+                  </p>
                 </div>
+                <span className="neon-button mt-4 flex h-11 items-center justify-center rounded-2xl px-4 text-sm">View Event</span>
               </div>
             </Link>
           ))}

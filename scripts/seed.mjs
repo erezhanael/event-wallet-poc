@@ -38,7 +38,7 @@ async function upsertUser(user) {
     user_metadata: { full_name: user.full_name, role: user.role },
   });
 
-  if (error && !error.message.includes("already registered")) throw error;
+  if (error && error.code !== "email_exists" && !error.message.includes("already registered")) throw error;
 
   if (data.user) {
     await supabase.from("users_profile").upsert({

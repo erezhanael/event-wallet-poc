@@ -176,6 +176,46 @@ input {
   pointer-events: none;
 }
 
+.event-poster {
+  position: relative;
+  overflow: hidden;
+  min-height: 30rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.72)),
+    radial-gradient(circle at 28% 22%, rgba(56, 255, 156, 0.34), transparent 16rem),
+    radial-gradient(circle at 76% 12%, rgba(255, 59, 189, 0.38), transparent 15rem),
+    linear-gradient(145deg, #12121d, #05050a 68%);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  isolation: isolate;
+}
+
+.event-poster::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 100%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 100%);
+  background-size: 34px 34px;
+  opacity: 0.26;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 80%);
+}
+
+.event-poster::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(110deg, transparent 0 48%, rgba(255, 255, 255, 0.18) 50%, transparent 54%),
+    linear-gradient(180deg, transparent 42%, rgba(0, 0, 0, 0.78));
+  opacity: 0.8;
+}
+
 .shine {
   position: relative;
   overflow: hidden;
