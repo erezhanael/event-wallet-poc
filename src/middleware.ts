@@ -6,10 +6,6 @@ export function middleware(request: NextRequest) {
   const role = request.cookies.get("event_wallet_role")?.value;
   const signedInRole = isUserRole(role) ? role : null;
 
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL(signedInRole ? roleHome[signedInRole] : "/login", request.url));
-  }
-
   if (pathname === "/login" && signedInRole) {
     return NextResponse.redirect(new URL(roleHome[signedInRole], request.url));
   }

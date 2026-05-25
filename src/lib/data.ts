@@ -2,12 +2,45 @@ import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
 import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
 import type { BartenderShift, BartenderShiftSummary, DashboardMetrics, EventBartender, EventRecord, MenuItem, Ticket, TicketType, Transaction, Wallet } from "./types";
 
+export type PublicEventSummary = EventRecord & {
+  ticketTypes: TicketType[];
+  lowestTicketPriceCents: number | null;
+  ticketsAvailable: number;
+};
+
 export async function getEvents(): Promise<EventRecord[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [mockEvent];
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase.from("events").select("*").order("start_time", { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getPublicEventSummaries(): Promise<PublicEventSummary[]> {
+  const events = await getEvents();
+  const upcomingEvents = events
+    .filter((event) => new Date(event.end_time).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+
+  const summaries = await Promise.all(
+    upcomingEvents.map(async (event) => {
+      const ticketTypes = await getTicketTypes(event.id).catch(() => []);
+      const availableTicketTypes = ticketTypes.filter((ticketType) => ticketType.active);
+      const prices = availableTicketTypes.map((ticketType) => ticketType.price_cents);
+
+      return {
+        ...event,
+        ticketTypes: availableTicketTypes,
+        lowestTicketPriceCents: prices.length ? Math.min(...prices) : null,
+        ticketsAvailable: availableTicketTypes.reduce(
+          (sum, ticketType) => sum + Math.max(0, ticketType.quantity_total - ticketType.quantity_sold),
+          0,
+        ),
+      };
+    }),
+  );
+
+  return summaries;
 }
 
 export async function getEvent(eventId: string): Promise<EventRecord | null> {
