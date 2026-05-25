@@ -51,10 +51,12 @@ export async function getEvent(eventId: string): Promise<EventRecord | null> {
   return data;
 }
 
-export async function getWallet(eventId: string): Promise<Wallet | null> {
+export async function getWallet(eventId: string, userId?: string | null): Promise<Wallet | null> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockWallet;
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase.from("wallets").select("*").eq("event_id", eventId).limit(1).single();
+  let query = supabase.from("wallets").select("*").eq("event_id", eventId);
+  if (userId) query = query.eq("user_id", userId);
+  const { data, error } = await query.maybeSingle();
   if (error) return null;
   return data;
 }

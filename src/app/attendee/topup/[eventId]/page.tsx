@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { getEvent, getWallet } from "@/lib/data";
 import { formatMoney } from "@/lib/money";
+import { cookies } from "next/headers";
 
 const amounts = [5000, 10000, 15000, 25000];
 
@@ -18,7 +19,9 @@ export default async function TopupPage({
 }) {
   const { eventId } = await params;
   const { checkout } = await searchParams;
-  const [event, wallet] = await Promise.all([getEvent(eventId), getWallet(eventId)]);
+  const cookieStore = await cookies();
+  const attendeeId = cookieStore.get("event_wallet_user_id")?.value;
+  const [event, wallet] = await Promise.all([getEvent(eventId), getWallet(eventId, attendeeId)]);
   const checkoutMessage = checkout ? checkoutMessages[checkout] : null;
 
   return (

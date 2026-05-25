@@ -30,7 +30,7 @@ export default async function WalletPage({
   const attendeeId = cookieStore.get("event_wallet_user_id")?.value;
   const [event, wallet, transactions, tickets] = await Promise.all([
     getEvent(eventId),
-    getWallet(eventId),
+    getWallet(eventId, attendeeId),
     getTransactions(eventId),
     getAttendeeTickets(eventId, attendeeId),
   ]);
