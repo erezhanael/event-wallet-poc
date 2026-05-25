@@ -1,4 +1,4 @@
-export type UserRole = "attendee" | "bartender" | "organizer";
+export type UserRole = "attendee" | "bartender" | "organizer" | "checkin";
 
 export type Profile = {
   id: string;
@@ -95,6 +95,36 @@ export type Ticket = {
   purchased_at: string;
   checked_in_at: string | null;
   ticket_type?: TicketType;
+};
+
+export type AttendeeCheckInStatus = {
+  id: string;
+  event_id: string;
+  attendee_id: string;
+  checked_in: boolean;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  nfc_tag_uid: string | null;
+  nfc_wallet_id: string | null;
+  nfc_assigned_at: string | null;
+  nfc_assigned_by: string | null;
+  nfc_status: "active" | "replaced" | "lost" | "blocked" | null;
+  replaced_from_tag_uid: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NfcAssignmentLog = {
+  id: string;
+  event_id: string;
+  attendee_id: string;
+  wallet_id: string;
+  tag_uid: string;
+  action: "assigned" | "replaced" | "blocked" | "lost";
+  staff_user_id: string;
+  timestamp: string;
+  device_id: string | null;
+  sync_status: "synced" | "pending" | "conflict";
 };
 
 export type PurchaseItem = {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
-import { Camera, CheckCircle, Minus, Search, ShoppingCart, Trash2, X, XCircle } from "lucide-react";
+import { Camera, CheckCircle, Minus, Nfc, Search, ShoppingCart, Trash2, X, XCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatMoney } from "@/lib/money";
 import type { MenuItem } from "@/lib/types";
@@ -10,9 +10,18 @@ import type { MenuItem } from "@/lib/types";
 type Cart = Record<string, number>;
 type ScanState = "idle" | "starting" | "unsupported" | "error";
 type WalletLookupState = "empty" | "loading" | "found" | "missing" | "error";
+type LookupMode = "qr" | "nfc";
+type NfcReader = {
+  scan: () => Promise<void>;
+  onreading: ((event: { serialNumber?: string }) => void) | null;
+  onreadingerror: (() => void) | null;
+};
 
 export function CheckoutClient({ eventId, currency, menuItems }: { eventId: string; currency?: string; menuItems: MenuItem[] }) {
   const [walletToken, setWalletToken] = useState("");
+  const [chargeWalletToken, setChargeWalletToken] = useState("");
+  const [lookupMode, setLookupMode] = useState<LookupMode>("qr");
+  const [attendeeName, setAttendeeName] = useState("");
   const [balance, setBalance] = useState<number | null>(null);
   const [walletStatus, setWalletStatus] = useState<string | null>(null);
   const [lookupState, setLookupState] = useState<WalletLookupState>("empty");
@@ -30,8 +39,11 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
   );
   const canCharge = total > 0 && lookupState === "found" && walletStatus === "active" && balance !== null;
 
-  function updateWalletToken(nextToken: string) {
+  function updateWalletToken(nextToken: string, mode: LookupMode = "qr") {
     setWalletToken(nextToken);
+    setLookupMode(mode);
+    setChargeWalletToken("");
+    setAttendeeName("");
     setStatus("idle");
     setMessage("");
     if (!nextToken.trim()) {
@@ -74,7 +86,7 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
           const token = result?.getText().trim();
           if (!token) return;
 
-          updateWalletToken(token);
+          updateWalletToken(token, "qr");
           setScanMessage("Wallet token scanned.");
           setScanState("idle");
         });
@@ -118,7 +130,7 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
     const timeoutId = window.setTimeout(async () => {
       setLookupState("loading");
       try {
-        const params = new URLSearchParams({ eventId, walletToken: token });
+        const params = lookupMode === "nfc" ? new URLSearchParams({ eventId, tagUid: token }) : new URLSearchParams({ eventId, walletToken: token });
         const response = await fetch(`/api/wallet?${params.toString()}`, { signal: controller.signal });
         const payload = await response.json();
 
@@ -131,6 +143,8 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
 
         setBalance(payload.balance_cents);
         setWalletStatus(payload.status);
+        setChargeWalletToken(payload.qr_token ?? token);
+        setAttendeeName(payload.attendee_name ?? "");
         setLookupState("found");
       } catch {
         if (controller.signal.aborted) return;
@@ -144,7 +158,34 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [eventId, walletToken]);
+  }, [eventId, lookupMode, walletToken]);
+
+  async function readNfcTag() {
+    const Reader = (globalThis as typeof globalThis & { NDEFReader?: new () => NfcReader }).NDEFReader;
+    if (!Reader) {
+      setStatus("failure");
+      setMessage("Web NFC is not available in this browser. Enter the tag UID manually.");
+      return;
+    }
+
+    try {
+      const reader = new Reader();
+      reader.onreading = (event) => {
+        const uid = event.serialNumber ?? "";
+        if (uid) updateWalletToken(uid, "nfc");
+      };
+      reader.onreadingerror = () => {
+        setStatus("failure");
+        setMessage("Could not read NFC tag.");
+      };
+      await reader.scan();
+      setStatus("idle");
+      setMessage("Tap an NFC wristband.");
+    } catch {
+      setStatus("failure");
+      setMessage("NFC permission was blocked or unsupported.");
+    }
+  }
 
   function addItem(id: string) {
     setStatus("idle");
@@ -183,7 +224,8 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
 
   async function charge() {
     if (total <= 0) return;
-    if (!walletToken.trim()) {
+    const tokenForCharge = chargeWalletToken || walletToken.trim();
+    if (!tokenForCharge) {
       setStatus("failure");
       setMessage("Scan or enter a wallet token first");
       return;
@@ -208,7 +250,7 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        walletToken,
+        walletToken: tokenForCharge,
         eventId,
         items: Object.entries(cart)
           .filter(([, quantity]) => quantity > 0)
@@ -232,14 +274,14 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <section className="glass-card p-4">
-        <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+        <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2 shadow-inner">
             <Search size={18} className="shrink-0 text-cyan-200" />
             <input
               value={walletToken}
-              onChange={(event) => updateWalletToken(event.target.value)}
+              onChange={(event) => updateWalletToken(event.target.value, lookupMode)}
               className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-              placeholder="Scan or enter wallet token"
+              placeholder={lookupMode === "nfc" ? "NFC tag UID" : "Scan or enter wallet token"}
             />
           </div>
           <button
@@ -249,6 +291,14 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
           >
             {scanState === "starting" ? <X size={17} /> : <Camera size={17} />}
             {scanState === "starting" ? "Stop" : "Scan"}
+          </button>
+          <button
+            type="button"
+            onClick={readNfcTag}
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.10] px-4 text-sm font-bold text-emerald-100 hover:border-emerald-200/60"
+          >
+            <Nfc size={17} />
+            NFC
           </button>
         </div>
         {scanState !== "idle" || scanMessage ? (
@@ -296,6 +346,7 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
           {lookupState === "found" && (
             <>
               <p className="mt-1 text-4xl font-black tracking-tight">{formatMoney(balance ?? 0, currency)}</p>
+              {attendeeName && <p className="mt-2 text-sm font-bold text-white/70">{attendeeName}</p>}
               <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-white/50">{walletStatus}</p>
             </>
           )}

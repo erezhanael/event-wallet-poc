@@ -1,4 +1,6 @@
 drop function if exists public.get_event_dashboard(uuid);
+drop function if exists public.block_nfc_wristband(uuid, text, text, text, uuid);
+drop function if exists public.assign_nfc_wristband(uuid, text, text, text, uuid, boolean);
 drop function if exists public.check_in_ticket(text, uuid);
 drop function if exists public.issue_ticket(uuid, uuid, uuid);
 drop function if exists public.confirm_wallet_topup(uuid, uuid, text, integer);
@@ -8,6 +10,8 @@ drop function if exists public.is_event_member(uuid, text);
 
 drop table if exists public.stripe_payments cascade;
 drop table if exists public.bartender_shifts cascade;
+drop table if exists public.nfc_assignment_logs cascade;
+drop table if exists public.attendee_checkins cascade;
 drop table if exists public.tickets cascade;
 drop table if exists public.ticket_types cascade;
 drop table if exists public.purchase_items cascade;

@@ -8,6 +8,7 @@ import { createBrowserSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
 
 const demoUsers = [
   { label: "Attendee", email: "attendee@example.com" },
+  { label: "Check-In", email: "checkin@example.com" },
   { label: "Bartender", email: "bartender@example.com" },
   { label: "Organizer", email: "organizer@example.com" },
 ];
@@ -96,7 +97,7 @@ export function LoginForm() {
           </p>
         </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:grid-cols-4">
         {demoUsers.map((user) => (
           <button
             key={user.email}

@@ -27,6 +27,7 @@ const users = [
   { email: "organizer@example.com", password: "password123", role: "organizer", full_name: "Maya Organizer" },
   { email: "attendee@example.com", password: "password123", role: "attendee", full_name: "Noam Attendee" },
   { email: "bartender@example.com", password: "password123", role: "bartender", full_name: "Dana Bar" },
+  { email: "checkin@example.com", password: "password123", role: "checkin", full_name: "Rina Check-In" },
 ];
 
 async function upsertUser(user) {
@@ -88,6 +89,7 @@ await supabase.from("event_members").upsert(
     { event_id: event.id, user_id: ids.organizer, role: "organizer" },
     { event_id: event.id, user_id: ids.attendee, role: "attendee" },
     { event_id: event.id, user_id: ids.bartender, role: "bartender" },
+    { event_id: event.id, user_id: ids.checkin, role: "checkin" },
   ],
   { onConflict: "event_id,user_id" },
 );
@@ -150,4 +152,5 @@ console.log("Seed complete");
 console.log("Event code: NEON-2026");
 console.log("Attendee: attendee@example.com / password123");
 console.log("Bartender: bartender@example.com / password123");
+console.log("Check-In: checkin@example.com / password123");
 console.log("Organizer: organizer@example.com / password123");

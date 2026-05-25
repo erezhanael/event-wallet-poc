@@ -75,6 +75,27 @@ export async function getWalletByToken(eventId: string, walletToken: string): Pr
   return data;
 }
 
+export async function getWalletByNfcTag(eventId: string, tagUid: string, walletId?: string | null): Promise<(Wallet & { attendee_name?: string | null; nfc_status?: string | null }) | null> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return tagUid ? { ...mockWallet, attendee_name: "Noam Attendee", nfc_status: "active" } : null;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  let query = supabase
+    .from("attendee_checkins")
+    .select("nfc_status, nfc_wallet_id, attendee:users_profile(full_name), wallet:wallets(*)")
+    .eq("event_id", eventId)
+    .eq("nfc_tag_uid", tagUid);
+
+  if (walletId) query = query.eq("nfc_wallet_id", walletId);
+  const { data, error } = await query.maybeSingle();
+  if (error || !data || data.nfc_status !== "active") return null;
+
+  const wallet = Array.isArray(data.wallet) ? data.wallet[0] : data.wallet;
+  const attendee = Array.isArray(data.attendee) ? data.attendee[0] : data.attendee;
+  return wallet ? { ...wallet, attendee_name: attendee?.full_name ?? null, nfc_status: data.nfc_status } : null;
+}
+
 export async function getMenuItems(eventId: string): Promise<MenuItem[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockMenuItems;
   const supabase = createServiceSupabaseClient();
