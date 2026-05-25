@@ -6,9 +6,23 @@ import { QrWallet } from "@/components/qr-wallet";
 import { getEvent, getTransactions, getWallet } from "@/lib/data";
 import { formatMoney } from "@/lib/money";
 
-export default async function WalletPage({ params }: { params: Promise<{ eventId: string }> }) {
+const checkoutMessages: Record<string, string> = {
+  mock: "Mock checkout opened because Stripe is not configured.",
+  "mock-success": "Mock payment approved. Demo mode does not update the wallet balance.",
+  success: "Payment received. The wallet balance updates after Stripe webhook confirmation.",
+};
+
+export default async function WalletPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ checkout?: string }>;
+}) {
   const { eventId } = await params;
+  const { checkout } = await searchParams;
   const [event, wallet, transactions] = await Promise.all([getEvent(eventId), getWallet(eventId), getTransactions(eventId)]);
+  const checkoutMessage = checkout ? checkoutMessages[checkout] : null;
 
   if (!event || !wallet) {
     return <AppShell><p>Wallet not found.</p></AppShell>;
@@ -37,6 +51,11 @@ export default async function WalletPage({ params }: { params: Promise<{ eventId
               <span className="neon-badge justify-center border-cyan-300/30 bg-cyan-300/[0.12] text-cyan-100">Level 04</span>
             </div>
           </MotionPanel>
+          {checkoutMessage && (
+            <p className="mb-4 rounded-2xl border border-cyan-300/25 bg-cyan-300/[0.10] p-3 text-sm font-semibold text-cyan-100">
+              {checkoutMessage}
+            </p>
+          )}
           <QrWallet token={wallet.qr_token} />
           <div className="mt-4 grid grid-cols-2 gap-3">
             <TapMotion>
