@@ -1,13 +1,24 @@
 import Link from "next/link";
-import { CalendarDays, Flame, Ticket, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, Flame, Ticket, Users } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { MotionPanel, TapMotion } from "@/components/motion-primitives";
-import { getEvents } from "@/lib/data";
+import { getAttendeeTickets, getEvents } from "@/lib/data";
+import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
 export default async function AttendeeEventsPage() {
+  const cookieStore = await cookies();
+  const attendeeId = cookieStore.get("event_wallet_user_id")?.value;
   const events = await getEvents();
+  const ticketsByEvent = new Map(
+    await Promise.all(
+      events.map(async (event) => {
+        const tickets = await getAttendeeTickets(event.id, attendeeId).catch(() => []);
+        return [event.id, tickets] as const;
+      }),
+    ),
+  );
 
   return (
     <AppShell>
@@ -23,50 +34,66 @@ export default async function AttendeeEventsPage() {
         </form>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        {events.map((event) => (
-          <TapMotion key={event.id}>
-            <MotionPanel className="h-full">
-              <div className="ticket-card glass-card shine block min-h-64 rounded-[2rem] p-5">
-                <div className="relative z-10 flex items-start justify-between">
-                  <span className="grid size-12 place-items-center rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.15] text-emerald-100 shadow-[0_0_28px_rgba(56,255,156,0.2)]">
-                    <Ticket size={23} />
-                  </span>
-                  <span className="rounded-full border border-white/15 bg-black/30 px-3 py-1 font-mono text-xs text-white/[0.78]">{event.event_code}</span>
+        {events.map((event) => {
+          const tickets = ticketsByEvent.get(event.id) ?? [];
+          const activeTicketCount = tickets.filter((ticket) => ticket.status === "active" || ticket.status === "checked_in").length;
+          const hasPurchasedTicket = activeTicketCount > 0;
+
+          return (
+            <TapMotion key={event.id}>
+              <MotionPanel className="h-full">
+                <div className="ticket-card glass-card shine block min-h-64 rounded-[2rem] p-5">
+                  <div className="relative z-10 flex items-start justify-between">
+                    <span className="grid size-12 place-items-center rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.15] text-emerald-100 shadow-[0_0_28px_rgba(56,255,156,0.2)]">
+                      <Ticket size={23} />
+                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="rounded-full border border-white/15 bg-black/30 px-3 py-1 font-mono text-xs text-white/[0.78]">{event.event_code}</span>
+                      {hasPurchasedTicket && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/35 bg-emerald-300/[0.14] px-3 py-1 text-xs font-black text-emerald-100 shadow-[0_0_26px_rgba(52,211,153,0.18)]">
+                          <CheckCircle2 size={13} />
+                          Purchased
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="relative z-10 mt-16">
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-pink-400/[0.15] px-2 py-1 text-xs font-bold text-pink-100">Rooftop</span>
+                      <span className="rounded-full bg-cyan-400/[0.15] px-2 py-1 text-xs font-bold text-cyan-100">Live Bar</span>
+                      <span className="rounded-full bg-emerald-400/[0.15] px-2 py-1 text-xs font-bold text-emerald-100">Wallet Ready</span>
+                    </div>
+                    <h2 className="premium-heading text-3xl font-black text-white">{event.name}</h2>
+                    <div className="mt-4 grid gap-2 text-sm text-white/[0.68]">
+                      <p className="flex items-center gap-2">
+                        <CalendarDays size={16} />
+                        {new Date(event.start_time).toLocaleString()}
+                      </p>
+                      <p className="flex items-center gap-2">
+                        <Users size={16} />
+                        96 checked in
+                      </p>
+                      <p className={`flex items-center gap-2 ${hasPurchasedTicket ? "text-emerald-200" : "text-fuchsia-100"}`}>
+                        {hasPurchasedTicket ? <CheckCircle2 size={16} /> : <Flame size={16} />}
+                        {hasPurchasedTicket
+                          ? `${activeTicketCount} ticket${activeTicketCount === 1 ? "" : "s"} purchased`
+                          : "Tickets available"}
+                      </p>
+                    </div>
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <Link href={`/attendee/events/${event.id}/tickets`} className="neon-button flex h-11 items-center justify-center px-3 text-sm">
+                        {hasPurchasedTicket ? "View Tickets" : "Get Tickets"}
+                      </Link>
+                      <Link href={`/attendee/wallet/${event.id}`} className="flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.08] px-3 text-sm font-black text-white/75 hover:bg-white/[0.12]">
+                        Wallet
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-                <div className="relative z-10 mt-16">
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-pink-400/[0.15] px-2 py-1 text-xs font-bold text-pink-100">Rooftop</span>
-                    <span className="rounded-full bg-cyan-400/[0.15] px-2 py-1 text-xs font-bold text-cyan-100">Live Bar</span>
-                    <span className="rounded-full bg-emerald-400/[0.15] px-2 py-1 text-xs font-bold text-emerald-100">Wallet Ready</span>
-                  </div>
-                  <h2 className="premium-heading text-3xl font-black text-white">{event.name}</h2>
-                  <div className="mt-4 grid gap-2 text-sm text-white/[0.68]">
-                    <p className="flex items-center gap-2">
-                      <CalendarDays size={16} />
-                      {new Date(event.start_time).toLocaleString()}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <Users size={16} />
-                      96 checked in
-                    </p>
-                    <p className="flex items-center gap-2 text-emerald-200">
-                      <Flame size={16} />
-                      Opens in party mode
-                    </p>
-                  </div>
-                  <div className="mt-5 grid grid-cols-2 gap-2">
-                    <Link href={`/attendee/events/${event.id}/tickets`} className="neon-button flex h-11 items-center justify-center px-3 text-sm">
-                      Tickets
-                    </Link>
-                    <Link href={`/attendee/wallet/${event.id}`} className="flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.08] px-3 text-sm font-black text-white/75 hover:bg-white/[0.12]">
-                      Wallet
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </MotionPanel>
-          </TapMotion>
-        ))}
+              </MotionPanel>
+            </TapMotion>
+          );
+        })}
       </div>
     </AppShell>
   );
