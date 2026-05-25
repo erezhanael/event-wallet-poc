@@ -1,6 +1,6 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
-import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
-import type { BartenderShift, BartenderShiftSummary, DashboardMetrics, EventBartender, EventRecord, MenuItem, Ticket, TicketType, Transaction, Wallet } from "./types";
+import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketCancellationRequests, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
+import type { BartenderShift, BartenderShiftSummary, DashboardMetrics, EventBartender, EventRecord, MenuItem, Ticket, TicketCancellationRequest, TicketType, Transaction, Wallet } from "./types";
 
 export type PublicEventSummary = EventRecord & {
   ticketTypes: TicketType[];
@@ -152,6 +152,42 @@ export async function getAttendeeTickets(eventId: string, attendeeId?: string | 
     .order("purchased_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getTicketCancellationRequests(eventId: string, attendeeId?: string | null): Promise<TicketCancellationRequest[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockTicketCancellationRequests.filter((request) => request.event_id === eventId && (!attendeeId || request.attendee_id === attendeeId));
+  }
+
+  const supabase = createServiceSupabaseClient();
+  let query = supabase
+    .from("ticket_cancellation_requests")
+    .select("*, ticket:tickets(*, ticket_type:ticket_types(*))")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  if (attendeeId) query = query.eq("attendee_id", attendeeId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const requests = (data ?? []) as TicketCancellationRequest[];
+  const profileIds = Array.from(
+    new Set(requests.flatMap((request) => [request.attendee_id, request.reviewed_by]).filter((id): id is string => Boolean(id))),
+  );
+  if (!profileIds.length) return requests;
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("users_profile")
+    .select("id, full_name")
+    .in("id", profileIds);
+  if (profilesError) throw profilesError;
+
+  const namesById = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
+  return requests.map((request) => ({
+    ...request,
+    attendee_name: namesById.get(request.attendee_id) ?? null,
+    reviewer_name: request.reviewed_by ? namesById.get(request.reviewed_by) ?? null : null,
+  }));
 }
 
 export async function getTicketByToken(ticketToken: string): Promise<Ticket | null> {

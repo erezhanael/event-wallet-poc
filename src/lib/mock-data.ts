@@ -3,6 +3,7 @@ import type {
   EventRecord,
   MenuItem,
   Profile,
+  TicketCancellationRequest,
   Ticket,
   TicketType,
   Transaction,
@@ -102,6 +103,8 @@ export const mockTickets: Ticket[] = [
     ticket_type: mockTicketTypes[0],
   },
 ];
+
+export const mockTicketCancellationRequests: TicketCancellationRequest[] = [];
 
 export const mockTransactions: Transaction[] = [
   {

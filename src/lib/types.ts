@@ -97,6 +97,39 @@ export type Ticket = {
   ticket_type?: TicketType;
 };
 
+export type TicketCancellationRequest = {
+  id: string;
+  event_id: string;
+  ticket_id: string;
+  attendee_id: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  refund_amount_cents: number;
+  refund_mode: "manual" | "wallet_credit" | "original_payment";
+  organizer_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  ticket?: Ticket;
+  attendee_name?: string | null;
+  reviewer_name?: string | null;
+};
+
+export type RefundRecord = {
+  id: string;
+  event_id: string;
+  ticket_id: string;
+  cancellation_request_id: string | null;
+  attendee_id: string;
+  amount_cents: number;
+  method: "manual" | "wallet_credit" | "original_payment";
+  status: "pending" | "completed" | "failed";
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type AttendeeCheckInStatus = {
   id: string;
   event_id: string;

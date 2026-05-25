@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, ListPlus, ReceiptText, Ticket } from "lucide-react";
+import { Download, ListPlus, ReceiptText, RotateCcw, Ticket } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { BartenderManager } from "@/components/bartender-manager";
 import { TapMotion } from "@/components/motion-primitives";
@@ -18,7 +18,7 @@ export default async function EventAdminPage({ params }: { params: Promise<{ eve
         <h1 className="premium-heading mt-3 text-4xl sm:text-5xl">{event.name}</h1>
         <p className="mt-2 font-mono text-sm text-white/55">Code {event.event_code}</p>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <TapMotion>
           <Link href={`/organizer/events/${event.id}/menu`} className="glass-card shine block p-5">
             <ListPlus className="text-emerald-200" />
@@ -38,6 +38,13 @@ export default async function EventAdminPage({ params }: { params: Promise<{ eve
             <ReceiptText className="text-fuchsia-200" />
             <h2 className="mt-4 text-lg font-black text-white">Transactions</h2>
             <p className="mt-2 text-sm text-white/55">Review wallet top-ups and purchases.</p>
+          </Link>
+        </TapMotion>
+        <TapMotion>
+          <Link href={`/organizer/events/${event.id}/cancellations`} className="glass-card shine block p-5">
+            <RotateCcw className="text-yellow-200" />
+            <h2 className="mt-4 text-lg font-black text-white">Cancellations</h2>
+            <p className="mt-2 text-sm text-white/55">Approve requests, restore inventory, and track refunds.</p>
           </Link>
         </TapMotion>
       </div>
