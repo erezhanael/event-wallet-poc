@@ -118,6 +118,24 @@ await supabase.from("menu_items").insert([
   { event_id: event.id, name: "House Shot", price_cents: 2200, category: "Shot" },
 ]);
 
+await supabase.from("ticket_types").delete().eq("event_id", event.id);
+await supabase.from("ticket_types").insert([
+  {
+    event_id: event.id,
+    name: "General Admission",
+    description: "Rooftop entry with wallet access.",
+    price_cents: 6500,
+    quantity_total: 200,
+  },
+  {
+    event_id: event.id,
+    name: "VIP",
+    description: "Priority entry and VIP wristband.",
+    price_cents: 14000,
+    quantity_total: 50,
+  },
+]);
+
 await supabase.from("transactions").insert([
   {
     event_id: event.id,

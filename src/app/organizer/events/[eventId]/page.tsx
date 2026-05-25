@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, ListPlus, ReceiptText } from "lucide-react";
+import { Download, ListPlus, ReceiptText, Ticket } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { BartenderManager } from "@/components/bartender-manager";
 import { TapMotion } from "@/components/motion-primitives";
@@ -26,7 +26,13 @@ export default async function EventAdminPage({ params }: { params: Promise<{ eve
             <p className="mt-2 text-sm text-white/55">Manage item names, prices, categories, and availability.</p>
           </Link>
         </TapMotion>
-        <BartenderManager eventId={event.id} initialBartenders={bartenders} />
+        <TapMotion>
+          <Link href={`/organizer/events/${event.id}/tickets`} className="glass-card shine block p-5">
+            <Ticket className="text-cyan-200" />
+            <h2 className="mt-4 text-lg font-black text-white">Tickets</h2>
+            <p className="mt-2 text-sm text-white/55">Create ticket types, pricing, and quantities.</p>
+          </Link>
+        </TapMotion>
         <TapMotion>
           <Link href={`/organizer/events/${event.id}/transactions`} className="glass-card shine block p-5">
             <ReceiptText className="text-fuchsia-200" />
@@ -34,6 +40,9 @@ export default async function EventAdminPage({ params }: { params: Promise<{ eve
             <p className="mt-2 text-sm text-white/55">Review wallet top-ups and purchases.</p>
           </Link>
         </TapMotion>
+      </div>
+      <div className="mt-4">
+        <BartenderManager eventId={event.id} initialBartenders={bartenders} />
       </div>
       <a href={`/api/export-transactions/${event.id}`} className="neon-button mt-5 inline-flex items-center gap-2 px-4 py-3 text-sm">
         <Download size={16} />

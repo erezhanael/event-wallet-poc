@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowDownLeft, ChartNoAxesColumnIncreasing, RotateCcw, Sparkles, WalletCards } from "lucide-react";
+import { ArrowDownLeft, ChartNoAxesColumnIncreasing, RotateCcw, Sparkles, Ticket, WalletCards } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { MotionPanel, TapMotion } from "@/components/motion-primitives";
 import { QrWallet } from "@/components/qr-wallet";
-import { getEvent, getTransactions, getWallet } from "@/lib/data";
+import { getAttendeeTickets, getEvent, getTransactions, getWallet } from "@/lib/data";
 import { formatMoney } from "@/lib/money";
+import { cookies } from "next/headers";
 
 const checkoutMessages: Record<string, string> = {
   mock: "Mock checkout opened because Stripe is not configured.",
@@ -12,17 +13,29 @@ const checkoutMessages: Record<string, string> = {
   success: "Payment received. The wallet balance updates after Stripe webhook confirmation.",
 };
 
+const ticketMessages: Record<string, string> = {
+  purchased: "Ticket issued. Your entry QR is ready below.",
+};
+
 export default async function WalletPage({
   params,
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ checkout?: string }>;
+  searchParams: Promise<{ checkout?: string; ticket?: string }>;
 }) {
   const { eventId } = await params;
-  const { checkout } = await searchParams;
-  const [event, wallet, transactions] = await Promise.all([getEvent(eventId), getWallet(eventId), getTransactions(eventId)]);
+  const { checkout, ticket } = await searchParams;
+  const cookieStore = await cookies();
+  const attendeeId = cookieStore.get("event_wallet_user_id")?.value;
+  const [event, wallet, transactions, tickets] = await Promise.all([
+    getEvent(eventId),
+    getWallet(eventId),
+    getTransactions(eventId),
+    getAttendeeTickets(eventId, attendeeId),
+  ]);
   const checkoutMessage = checkout ? checkoutMessages[checkout] : null;
+  const ticketMessage = ticket ? ticketMessages[ticket] : null;
 
   if (!event || !wallet) {
     return <AppShell><p>Wallet not found.</p></AppShell>;
@@ -56,7 +69,31 @@ export default async function WalletPage({
               {checkoutMessage}
             </p>
           )}
-          <QrWallet token={wallet.qr_token} />
+          {ticketMessage && (
+            <p className="mb-4 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.10] p-3 text-sm font-semibold text-emerald-100">
+              {ticketMessage}
+            </p>
+          )}
+          <div className="space-y-4">
+            {tickets.map((currentTicket) => (
+              <div key={currentTicket.id}>
+                <QrWallet token={currentTicket.ticket_token} label={`${currentTicket.ticket_type?.name ?? "Ticket"} QR`} />
+                <div className="mt-2 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.05] p-3 text-sm">
+                  <span className="flex items-center gap-2 font-bold text-white">
+                    <Ticket size={16} />
+                    {currentTicket.status}
+                  </span>
+                  <span className="text-white/45">{currentTicket.checked_in_at ? new Date(currentTicket.checked_in_at).toLocaleString() : "Not checked in"}</span>
+                </div>
+              </div>
+            ))}
+            {tickets.length === 0 && (
+              <Link href={`/attendee/events/${event.id}/tickets`} className="block rounded-3xl border border-fuchsia-300/25 bg-fuchsia-300/[0.10] p-4 text-sm font-bold text-fuchsia-100">
+                No ticket yet. Get event access before arrival.
+              </Link>
+            )}
+            <QrWallet token={wallet.qr_token} label="Wallet QR" />
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <TapMotion>
               <Link href={`/attendee/topup/${event.id}`} className="neon-button flex h-12 items-center justify-center px-4 text-center text-sm">

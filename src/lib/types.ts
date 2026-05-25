@@ -71,6 +71,32 @@ export type Transaction = {
   created_at: string;
 };
 
+export type TicketType = {
+  id: string;
+  event_id: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  quantity_total: number;
+  quantity_sold: number;
+  active: boolean;
+  sales_start: string | null;
+  sales_end: string | null;
+  created_at: string;
+};
+
+export type Ticket = {
+  id: string;
+  event_id: string;
+  ticket_type_id: string;
+  attendee_id: string;
+  ticket_token: string;
+  status: "active" | "checked_in" | "cancelled" | "refunded";
+  purchased_at: string;
+  checked_in_at: string | null;
+  ticket_type?: TicketType;
+};
+
 export type PurchaseItem = {
   id: string;
   transaction_id: string;

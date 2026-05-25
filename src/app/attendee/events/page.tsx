@@ -26,7 +26,7 @@ export default async function AttendeeEventsPage() {
         {events.map((event) => (
           <TapMotion key={event.id}>
             <MotionPanel className="h-full">
-              <Link href={`/attendee/wallet/${event.id}`} className="ticket-card glass-card shine block min-h-64 rounded-[2rem] p-5">
+              <div className="ticket-card glass-card shine block min-h-64 rounded-[2rem] p-5">
                 <div className="relative z-10 flex items-start justify-between">
                   <span className="grid size-12 place-items-center rounded-2xl border border-emerald-300/30 bg-emerald-300/[0.15] text-emerald-100 shadow-[0_0_28px_rgba(56,255,156,0.2)]">
                     <Ticket size={23} />
@@ -54,8 +54,16 @@ export default async function AttendeeEventsPage() {
                       Opens in party mode
                     </p>
                   </div>
+                  <div className="mt-5 grid grid-cols-2 gap-2">
+                    <Link href={`/attendee/events/${event.id}/tickets`} className="neon-button flex h-11 items-center justify-center px-3 text-sm">
+                      Tickets
+                    </Link>
+                    <Link href={`/attendee/wallet/${event.id}`} className="flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.08] px-3 text-sm font-black text-white/75 hover:bg-white/[0.12]">
+                      Wallet
+                    </Link>
+                  </div>
                 </div>
-              </Link>
+              </div>
             </MotionPanel>
           </TapMotion>
         ))}

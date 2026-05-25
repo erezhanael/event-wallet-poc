@@ -3,6 +3,8 @@ import type {
   EventRecord,
   MenuItem,
   Profile,
+  Ticket,
+  TicketType,
   Transaction,
   Wallet,
 } from "./types";
@@ -56,6 +58,49 @@ export const mockMenuItems: MenuItem[] = [
   { id: "m4", event_id: mockEvent.id, name: "Mineral Water", price_cents: 1200, category: "Soft", active: true },
   { id: "m5", event_id: mockEvent.id, name: "Energy Drink", price_cents: 1800, category: "Soft", active: true },
   { id: "m6", event_id: mockEvent.id, name: "House Shot", price_cents: 2200, category: "Shot", active: true },
+];
+
+export const mockTicketTypes: TicketType[] = [
+  {
+    id: "ticket-type-ga",
+    event_id: mockEvent.id,
+    name: "General Admission",
+    description: "Rooftop entry with wallet access.",
+    price_cents: 6500,
+    quantity_total: 200,
+    quantity_sold: 1,
+    active: true,
+    sales_start: null,
+    sales_end: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "ticket-type-vip",
+    event_id: mockEvent.id,
+    name: "VIP",
+    description: "Priority entry and VIP wristband.",
+    price_cents: 14000,
+    quantity_total: 50,
+    quantity_sold: 0,
+    active: true,
+    sales_start: null,
+    sales_end: null,
+    created_at: new Date().toISOString(),
+  },
+];
+
+export const mockTickets: Ticket[] = [
+  {
+    id: "ticket-demo-noam",
+    event_id: mockEvent.id,
+    ticket_type_id: mockTicketTypes[0].id,
+    attendee_id: mockProfiles[1].id,
+    ticket_token: "ticket_demo_neon_2026_noam",
+    status: "active",
+    purchased_at: new Date().toISOString(),
+    checked_in_at: null,
+    ticket_type: mockTicketTypes[0],
+  },
 ];
 
 export const mockTransactions: Transaction[] = [

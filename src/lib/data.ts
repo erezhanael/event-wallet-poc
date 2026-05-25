@@ -1,6 +1,6 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
-import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTransactions, mockWallet } from "./mock-data";
-import type { BartenderShift, BartenderShiftSummary, DashboardMetrics, EventBartender, EventRecord, MenuItem, Transaction, Wallet } from "./types";
+import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
+import type { BartenderShift, BartenderShiftSummary, DashboardMetrics, EventBartender, EventRecord, MenuItem, Ticket, TicketType, Transaction, Wallet } from "./types";
 
 export async function getEvents(): Promise<EventRecord[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [mockEvent];
@@ -66,6 +66,51 @@ export async function getOrganizerMenuItems(eventId: string): Promise<MenuItem[]
     .order("name");
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getTicketTypes(eventId: string, includeInactive = false): Promise<TicketType[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockTicketTypes.filter((ticketType) => ticketType.event_id === eventId && (includeInactive || ticketType.active));
+  }
+
+  const supabase = createServiceSupabaseClient();
+  let query = supabase.from("ticket_types").select("*").eq("event_id", eventId).order("created_at", { ascending: true });
+  if (!includeInactive) query = query.eq("active", true);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getAttendeeTickets(eventId: string, attendeeId?: string | null): Promise<Ticket[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockTickets.filter((ticket) => ticket.event_id === eventId);
+  }
+  if (!attendeeId) return [];
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("tickets")
+    .select("*, ticket_type:ticket_types(*)")
+    .eq("event_id", eventId)
+    .eq("attendee_id", attendeeId)
+    .order("purchased_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getTicketByToken(ticketToken: string): Promise<Ticket | null> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockTickets.find((ticket) => ticket.ticket_token === ticketToken) ?? null;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("tickets")
+    .select("*, ticket_type:ticket_types(*)")
+    .eq("ticket_token", ticketToken)
+    .maybeSingle();
+  if (error) return null;
+  return data;
 }
 
 export async function getEventBartenders(eventId: string): Promise<EventBartender[]> {
