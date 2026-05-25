@@ -1,5 +1,6 @@
 import type {
   DashboardMetrics,
+  CancellationPolicy,
   EventRecord,
   MenuItem,
   Profile,
@@ -105,6 +106,20 @@ export const mockTickets: Ticket[] = [
 ];
 
 export const mockTicketCancellationRequests: TicketCancellationRequest[] = [];
+
+export const mockCancellationPolicy: CancellationPolicy = {
+  id: "policy-demo-neon",
+  event_id: mockEvent.id,
+  enabled: true,
+  full_refund_until_hours: 48,
+  partial_refund_until_hours: 24,
+  partial_refund_percent: 50,
+  refund_mode: "manual",
+  requires_approval: true,
+  block_after_checkin: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
 
 export const mockTransactions: Transaction[] = [
   {

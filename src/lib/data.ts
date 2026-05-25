@@ -1,11 +1,21 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
-import { mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketCancellationRequests, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
-import type { BartenderShift, BartenderShiftSummary, DashboardMetrics, EventBartender, EventRecord, MenuItem, Ticket, TicketCancellationRequest, TicketType, Transaction, Wallet } from "./types";
+import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketCancellationRequests, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
+import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, MenuItem, Ticket, TicketCancellationRequest, TicketType, Transaction, Wallet } from "./types";
 
 export type PublicEventSummary = EventRecord & {
   ticketTypes: TicketType[];
   lowestTicketPriceCents: number | null;
   ticketsAvailable: number;
+};
+
+export const defaultCancellationPolicy = {
+  enabled: true,
+  full_refund_until_hours: 48,
+  partial_refund_until_hours: 24,
+  partial_refund_percent: 50,
+  refund_mode: "manual" as const,
+  requires_approval: true,
+  block_after_checkin: true,
 };
 
 export async function getEvents(): Promise<EventRecord[]> {
@@ -188,6 +198,18 @@ export async function getTicketCancellationRequests(eventId: string, attendeeId?
     attendee_name: namesById.get(request.attendee_id) ?? null,
     reviewer_name: request.reviewed_by ? namesById.get(request.reviewed_by) ?? null : null,
   }));
+}
+
+export async function getCancellationPolicy(eventId: string): Promise<CancellationPolicy | null> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockCancellationPolicy;
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("cancellation_policies")
+    .select("*")
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (error) return null;
+  return data;
 }
 
 export async function getTicketByToken(ticketToken: string): Promise<Ticket | null> {

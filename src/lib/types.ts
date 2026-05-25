@@ -130,6 +130,20 @@ export type RefundRecord = {
   created_at: string;
 };
 
+export type CancellationPolicy = {
+  id: string;
+  event_id: string;
+  enabled: boolean;
+  full_refund_until_hours: number;
+  partial_refund_until_hours: number;
+  partial_refund_percent: number;
+  refund_mode: "manual" | "wallet_credit" | "original_payment";
+  requires_approval: boolean;
+  block_after_checkin: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AttendeeCheckInStatus = {
   id: string;
   event_id: string;

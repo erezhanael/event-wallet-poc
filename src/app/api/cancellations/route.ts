@@ -1,11 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { defaultCancellationPolicy } from "@/lib/data";
 import { createServiceSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
+import type { CancellationPolicy } from "@/lib/types";
 
-function calculateRefundAmount(priceCents: number, eventStartTime: string) {
+function calculateRefundAmount(priceCents: number, eventStartTime: string, policy: Pick<CancellationPolicy, "full_refund_until_hours" | "partial_refund_until_hours" | "partial_refund_percent">) {
   const hoursUntilEvent = (new Date(eventStartTime).getTime() - Date.now()) / (1000 * 60 * 60);
-  if (hoursUntilEvent >= 48) return priceCents;
-  if (hoursUntilEvent >= 24) return Math.round(priceCents * 0.5);
+  if (hoursUntilEvent >= policy.full_refund_until_hours) return priceCents;
+  if (hoursUntilEvent >= policy.partial_refund_until_hours) return Math.round(priceCents * (policy.partial_refund_percent / 100));
   return 0;
 }
 
@@ -35,7 +37,17 @@ export async function POST(request: Request) {
   if (ticketError) return NextResponse.json({ error: ticketError.message }, { status: 400 });
   if (!ticket) return NextResponse.json({ error: "Ticket not found." }, { status: 404 });
   if (ticket.status !== "active") return NextResponse.json({ error: "Only active tickets can be cancelled." }, { status: 400 });
-  if (ticket.checked_in_at) return NextResponse.json({ error: "Checked-in tickets cannot be cancelled." }, { status: 400 });
+
+  const { data: savedPolicy, error: policyError } = await supabase
+    .from("cancellation_policies")
+    .select("*")
+    .eq("event_id", ticket.event_id)
+    .maybeSingle();
+  if (policyError) return NextResponse.json({ error: policyError.message }, { status: 400 });
+  const policy = savedPolicy ?? defaultCancellationPolicy;
+
+  if (!policy.enabled) return NextResponse.json({ error: "Cancellation requests are closed for this event." }, { status: 400 });
+  if (policy.block_after_checkin && ticket.checked_in_at) return NextResponse.json({ error: "Checked-in tickets cannot be cancelled." }, { status: 400 });
 
   const { data: existingRequest, error: existingError } = await supabase
     .from("ticket_cancellation_requests")
@@ -48,7 +60,7 @@ export async function POST(request: Request) {
 
   const event = Array.isArray(ticket.event) ? ticket.event[0] : ticket.event;
   const ticketType = Array.isArray(ticket.ticket_type) ? ticket.ticket_type[0] : ticket.ticket_type;
-  const refundAmountCents = calculateRefundAmount(ticketType?.price_cents ?? 0, event.start_time);
+  const refundAmountCents = calculateRefundAmount(ticketType?.price_cents ?? 0, event.start_time, policy);
 
   const { data: createdRequest, error: createError } = await supabase
     .from("ticket_cancellation_requests")
@@ -58,7 +70,7 @@ export async function POST(request: Request) {
       attendee_id: attendeeId,
       reason,
       refund_amount_cents: refundAmountCents,
-      refund_mode: "manual",
+      refund_mode: policy.refund_mode,
     })
     .select()
     .single();
