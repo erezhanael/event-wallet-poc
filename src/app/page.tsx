@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, CalendarDays, CreditCard, QrCode, Sparkles, Ticket, Users } from "lucide-react";
 import { PublicShell } from "@/components/public-shell";
 import { getPublicEventSummaries } from "@/lib/data";
@@ -6,9 +7,24 @@ import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
+const eventPosters = [
+  "/invite/neon_rooftop_invetation.png",
+  "/invite/summer_party_invetion.png",
+  "/invite/luna_invetion.png",
+];
+
+function getEventPoster(eventName: string, index = 0) {
+  const normalizedName = eventName.toLowerCase();
+  if (normalizedName.includes("summer")) return "/invite/summer_party_invetion.png";
+  if (normalizedName.includes("neon")) return "/invite/neon_rooftop_invetation.png";
+  if (normalizedName.includes("luna")) return "/invite/luna_invetion.png";
+  return eventPosters[index % eventPosters.length];
+}
+
 export default async function Home() {
   const events = await getPublicEventSummaries();
   const [featuredEvent] = events;
+  const featuredPoster = featuredEvent ? getEventPoster(featuredEvent.name) : null;
 
   return (
     <PublicShell>
@@ -48,6 +64,19 @@ export default async function Home() {
         </div>
 
         <aside className="event-poster shine rounded-[2rem] p-5">
+          {featuredEvent && featuredPoster && (
+            <>
+              <Image
+                src={featuredPoster}
+                alt={`${featuredEvent.name} event poster`}
+                fill
+                priority
+                sizes="(min-width: 1024px) 430px, 100vw"
+                className="absolute inset-0 z-0 object-cover"
+              />
+              <div className="absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(0,0,0,0.08),rgba(0,0,0,0.26)_38%,rgba(0,0,0,0.88))]" />
+            </>
+          )}
           <div className="relative z-10 flex items-start justify-between">
             <p className="rounded-full border border-white/15 bg-black/35 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/70">Featured</p>
             <span className="rounded-full border border-emerald-300/30 bg-emerald-300/[0.12] px-3 py-1 text-xs font-black text-emerald-100">Rooftop</span>
@@ -90,8 +119,19 @@ export default async function Home() {
           </div>
         </div>
         <div className="-mx-4 flex snap-x gap-5 overflow-x-auto px-4 pb-6">
-          {events.map((event, index) => (
-            <Link key={event.id} href={`/events/${event.id}`} className="event-poster shine flex w-[84vw] max-w-[390px] shrink-0 snap-start flex-col justify-between rounded-[2rem] p-5 sm:w-[390px]">
+          {events.map((event, index) => {
+            const poster = getEventPoster(event.name, index);
+
+            return (
+              <Link key={event.id} href={`/events/${event.id}`} className="event-poster shine group flex w-[84vw] max-w-[390px] shrink-0 snap-start flex-col justify-between rounded-[2rem] p-5 sm:w-[390px]">
+              <Image
+                src={poster}
+                alt={`${event.name} event poster`}
+                fill
+                sizes="(min-width: 640px) 390px, 84vw"
+                className="absolute inset-0 z-0 object-cover transition duration-500 group-hover:scale-[1.03]"
+              />
+              <div className="absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(0,0,0,0.08),rgba(0,0,0,0.20)_28%,rgba(0,0,0,0.90))]" />
               <div className="relative z-10 flex items-start justify-between gap-3">
                 <span className="grid size-12 place-items-center rounded-2xl border border-white/15 bg-black/35 text-emerald-100 backdrop-blur">
                   <Ticket size={22} />
@@ -125,8 +165,9 @@ export default async function Home() {
                 </div>
                 <span className="neon-button mt-4 flex h-11 items-center justify-center rounded-2xl px-4 text-sm">View Event</span>
               </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
           {events.length === 0 && <p className="rounded-3xl border border-white/10 bg-white/[0.05] p-5 text-white/55">No events yet.</p>}
         </div>
       </section>
