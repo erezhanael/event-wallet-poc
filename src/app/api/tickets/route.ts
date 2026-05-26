@@ -6,6 +6,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const eventId = String(body.eventId ?? "");
   const ticketTypeId = String(body.ticketTypeId ?? "");
+  const couponCode = String(body.couponCode ?? "").trim();
   const cookieStore = await cookies();
   const attendeeId = cookieStore.get("event_wallet_user_id")?.value;
 
@@ -18,10 +19,14 @@ export async function POST(request: Request) {
       ok: true,
       ticket_id: `mock-ticket-${Date.now()}`,
       ticket_token: `ticket_mock_${Date.now()}`,
+      promo_code: couponCode || null,
     });
   }
 
   const supabase = createServiceSupabaseClient();
+  const { data: authUser } = await supabase.auth.admin.getUserById(attendeeId);
+  const attendeeEmail = authUser.user?.email ?? null;
+
   const { error: memberError } = await supabase.from("event_members").upsert(
     {
       event_id: eventId,
@@ -56,10 +61,12 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await supabase.rpc("issue_ticket", {
+  const { data, error } = await supabase.rpc("issue_ticket_with_promo", {
     p_event_id: eventId,
     p_ticket_type_id: ticketTypeId,
     p_attendee_id: attendeeId,
+    p_promo_code: couponCode || null,
+    p_attendee_email: attendeeEmail,
   });
 
   if (error) {

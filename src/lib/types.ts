@@ -94,7 +94,28 @@ export type Ticket = {
   status: "active" | "checked_in" | "cancelled" | "refunded";
   purchased_at: string;
   checked_in_at: string | null;
+  original_price_cents: number;
+  discount_cents: number;
+  paid_amount_cents: number;
+  promo_code_id: string | null;
   ticket_type?: TicketType;
+};
+
+export type TicketPromotion = {
+  id: string;
+  event_id: string;
+  code: string;
+  description: string | null;
+  discount_type: "percent" | "fixed" | "free";
+  discount_value: number;
+  eligible_emails: string[];
+  max_redemptions: number | null;
+  redeemed_count: number;
+  active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TicketCancellationRequest = {

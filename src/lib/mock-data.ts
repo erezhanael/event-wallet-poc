@@ -101,6 +101,10 @@ export const mockTickets: Ticket[] = [
     status: "active",
     purchased_at: new Date().toISOString(),
     checked_in_at: null,
+    original_price_cents: mockTicketTypes[0].price_cents,
+    discount_cents: 0,
+    paid_amount_cents: mockTicketTypes[0].price_cents,
+    promo_code_id: null,
     ticket_type: mockTicketTypes[0],
   },
 ];

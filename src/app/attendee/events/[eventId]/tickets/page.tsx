@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { TicketCancellationRequestForm } from "@/components/ticket-cancellation-request-form";
 import { TicketPurchase } from "@/components/ticket-purchase";
 import { getAttendeeTickets, getEvent, getTicketCancellationRequests, getTicketTypes } from "@/lib/data";
+import { formatMoney } from "@/lib/money";
 import { cookies } from "next/headers";
 
 export default async function AttendeeTicketsPage({ params }: { params: Promise<{ eventId: string }> }) {
@@ -40,6 +41,11 @@ export default async function AttendeeTicketsPage({ params }: { params: Promise<
                       <div>
                         <p className="font-black text-white">{ticket.ticket_type?.name ?? "Ticket"}</p>
                         <p className="mt-1 font-mono text-xs text-white/45">{ticket.ticket_token}</p>
+                        {ticket.discount_cents > 0 && (
+                          <p className="mt-2 text-xs font-bold text-emerald-100">
+                            Paid {formatMoney(ticket.paid_amount_cents, event.currency)} after {formatMoney(ticket.discount_cents, event.currency)} coupon
+                          </p>
+                        )}
                       </div>
                       <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-xs font-black capitalize text-white/60">
                         {ticket.status}
