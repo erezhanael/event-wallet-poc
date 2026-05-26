@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ticket: { ticket_token: ticketToken, status: "active", ticket_type: { name: "General Admission" } },
       attendee: { full_name: "Noam Attendee" },
-      wallet: { id: "mock-wallet", balance_cents: 8500, status: "active" },
+      wallet: { id: "mock-wallet", balance_cents: 8500, qr_token: "wallet_demo_neon_2026_noam", status: "active" },
       checkin: null,
     });
   }
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
   const [{ data: attendee }, { data: wallet }, { data: checkin }] = await Promise.all([
     supabase.from("users_profile").select("id, full_name").eq("id", ticket.attendee_id).maybeSingle(),
-    supabase.from("wallets").select("id, balance_cents, status").eq("event_id", eventId).eq("user_id", ticket.attendee_id).maybeSingle(),
+    supabase.from("wallets").select("id, balance_cents, qr_token, status").eq("event_id", eventId).eq("user_id", ticket.attendee_id).maybeSingle(),
     supabase.from("attendee_checkins").select("*").eq("event_id", eventId).eq("attendee_id", ticket.attendee_id).maybeSingle(),
   ]);
 

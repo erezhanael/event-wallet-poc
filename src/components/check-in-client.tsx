@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle, CreditCard, Nfc, Search, ShieldAlert, TicketCheck, WifiOff, XCircle } from "lucide-react";
+import { Banknote, CheckCircle, CreditCard, Nfc, Percent, Search, ShieldAlert, TicketCheck, WifiOff, XCircle } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
 type LoadedTicket = {
   ticket?: { ticket_token: string; status: string; checked_in_at?: string | null; attendee_id?: string; ticket_type?: { name?: string } };
   attendee?: { id: string; full_name: string };
-  wallet?: { id: string; balance_cents: number; status: string };
+  wallet?: { id: string; balance_cents: number; qr_token?: string; status: string };
   checkin?: { checked_in?: boolean; nfc_tag_uid?: string | null; nfc_status?: string | null };
 };
 
@@ -24,10 +24,15 @@ export function CheckInClient({ eventId }: { eventId: string }) {
   const [ticketToken, setTicketToken] = useState("");
   const [tagUid, setTagUid] = useState("");
   const [loaded, setLoaded] = useState<LoadedTicket | null>(null);
+  const [mode, setMode] = useState<"wristband" | "cash">("wristband");
   const [message, setMessage] = useState("Scan or enter a ticket token to begin.");
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [isSaving, setIsSaving] = useState(false);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === "undefined" ? false : !navigator.onLine));
+  const [walletToken, setWalletToken] = useState("");
+  const [cashAmount, setCashAmount] = useState("");
+  const [applyBonus, setApplyBonus] = useState(true);
+  const [bonusPercent, setBonusPercent] = useState("10");
 
   useEffect(() => {
     const update = () => setIsOffline(!navigator.onLine);
@@ -75,6 +80,7 @@ export function CheckInClient({ eventId }: { eventId: string }) {
 
       setLoaded(payload);
       setTagUid(payload.checkin?.nfc_tag_uid ?? "");
+      setWalletToken(payload.wallet?.qr_token ?? "");
       setStatus("success");
       setMessage(payload.ticket?.status === "checked_in" ? "Ticket already checked in" : "Ticket valid");
     } finally {
@@ -187,6 +193,66 @@ export function CheckInClient({ eventId }: { eventId: string }) {
     setMessage(response.ok ? `This wristband is ${action}` : payload.error ?? "Could not update wristband");
   }
 
+  async function cashTopUp() {
+    const amount = Math.round(Number(cashAmount) * 100);
+    const bonus = applyBonus ? Number.parseInt(bonusPercent, 10) : 0;
+
+    if (!walletToken.trim()) {
+      setStatus("error");
+      setMessage("Scan or enter an attendee wallet token.");
+      return;
+    }
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setStatus("error");
+      setMessage("Enter a positive cash amount.");
+      return;
+    }
+
+    if (!Number.isInteger(bonus) || bonus < 0 || bonus > 100) {
+      setStatus("error");
+      setMessage("Bonus must be between 0 and 100 percent.");
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage("Depositing cash to wallet...");
+
+    try {
+      const response = await fetch("/api/check-in/cash-topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, walletToken, amountCents: amount, bonusPercent: bonus, deviceId }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setStatus("error");
+        setMessage(payload.error ?? "Could not deposit cash.");
+        return;
+      }
+
+      setStatus("success");
+      setCashAmount("");
+      setMessage(
+        `Cash deposited. Credited ${formatMoney(payload.total_credit_cents)} including ${formatMoney(payload.bonus_cents)} bonus.`,
+      );
+      if (loaded?.wallet?.qr_token === walletToken) {
+        setLoaded({
+          ...loaded,
+          wallet: { ...loaded.wallet, balance_cents: payload.balance_cents },
+        });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const cashAmountCents = Math.max(0, Math.round(Number(cashAmount || 0) * 100));
+  const parsedBonusPercent = applyBonus ? Math.max(0, Number.parseInt(bonusPercent || "0", 10) || 0) : 0;
+  const bonusCents = Math.round(cashAmountCents * (parsedBonusPercent / 100));
+  const totalCreditCents = cashAmountCents + bonusCents;
+
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
       <section className="glass-card p-5">
@@ -196,6 +262,25 @@ export function CheckInClient({ eventId }: { eventId: string }) {
             <h2 className="mt-3 text-2xl font-black text-white">Ticket + NFC Check-In</h2>
           </div>
           {isOffline ? <WifiOff className="text-amber-200" /> : <TicketCheck className="text-emerald-200" />}
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("wristband")}
+            className={`flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-black ${mode === "wristband" ? "neon-button" : "text-white/65 hover:bg-white/[0.08] hover:text-white"}`}
+          >
+            <Nfc size={16} />
+            Wristband
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("cash")}
+            className={`flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-black ${mode === "cash" ? "neon-button" : "text-white/65 hover:bg-white/[0.08] hover:text-white"}`}
+          >
+            <Banknote size={16} />
+            Cash Top-Up
+          </button>
         </div>
 
         <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -213,20 +298,70 @@ export function CheckInClient({ eventId }: { eventId: string }) {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-          <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
-            <Nfc size={18} className="text-emerald-200" />
-            <input
-              value={tagUid}
-              onChange={(event) => setTagUid(event.target.value)}
-              className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
-              placeholder="NTAG216 UID"
-            />
-          </label>
-          <button type="button" onClick={readNfc} className="h-12 rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-sm font-black text-white/75">
-            Scan NFC
-          </button>
-        </div>
+        {mode === "wristband" ? (
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+              <Nfc size={18} className="text-emerald-200" />
+              <input
+                value={tagUid}
+                onChange={(event) => setTagUid(event.target.value)}
+                className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
+                placeholder="NTAG216 UID"
+              />
+            </label>
+            <button type="button" onClick={readNfc} className="h-12 rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-sm font-black text-white/75">
+              Scan NFC
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+              <CreditCard size={18} className="text-emerald-200" />
+              <input
+                value={walletToken}
+                onChange={(event) => setWalletToken(event.target.value)}
+                className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
+                placeholder="wallet QR token"
+              />
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
+              <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+                <Banknote size={18} className="text-cyan-200" />
+                <input
+                  inputMode="decimal"
+                  value={cashAmount}
+                  onChange={(event) => setCashAmount(event.target.value)}
+                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+                  placeholder="cash amount"
+                />
+              </label>
+              <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+                <Percent size={18} className="text-fuchsia-200" />
+                <input
+                  inputMode="numeric"
+                  value={bonusPercent}
+                  onChange={(event) => setBonusPercent(event.target.value)}
+                  disabled={!applyBonus}
+                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35 disabled:text-white/30"
+                />
+              </label>
+            </div>
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/[0.08] p-3 text-sm font-bold text-emerald-100">
+              Add bonus to cash deposit
+              <input type="checkbox" checked={applyBonus} onChange={(event) => setApplyBonus(event.target.checked)} className="size-5 accent-emerald-300" />
+            </label>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.05] p-4">
+              <p className="text-sm text-white/45">Wallet credit</p>
+              <p className="mt-1 text-3xl font-black text-white">{formatMoney(totalCreditCents)}</p>
+              <p className="mt-1 text-xs text-white/45">
+                Cash {formatMoney(cashAmountCents)} + bonus {formatMoney(bonusCents)}
+              </p>
+            </div>
+            <button type="button" onClick={cashTopUp} disabled={isSaving} className="neon-button h-12 px-5 text-sm disabled:opacity-50">
+              Deposit Cash to Wallet
+            </button>
+          </div>
+        )}
 
         <div className={`mt-4 rounded-3xl border p-4 text-sm font-semibold ${status === "error" ? "border-red-300/30 bg-red-300/[0.12] text-red-100" : "border-emerald-300/30 bg-emerald-300/[0.10] text-emerald-100"}`}>
           <div className="flex items-center gap-2">
@@ -265,6 +400,18 @@ export function CheckInClient({ eventId }: { eventId: string }) {
                 </span>
               </button>
             </div>
+            {loaded.wallet?.qr_token && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("cash");
+                  setWalletToken(loaded.wallet?.qr_token ?? "");
+                }}
+                className="mt-3 h-12 w-full rounded-2xl border border-cyan-300/25 bg-cyan-300/[0.10] px-4 text-sm font-black text-cyan-100"
+              >
+                Use This Wallet for Cash Top-Up
+              </button>
+            )}
           </>
         ) : (
           <p className="mt-3 text-sm text-white/55">No ticket loaded.</p>

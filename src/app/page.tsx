@@ -123,48 +123,16 @@ export default async function Home() {
             const poster = getEventPoster(event.name, index);
 
             return (
-              <Link key={event.id} href={`/events/${event.id}`} className="event-poster shine group flex w-[84vw] max-w-[390px] shrink-0 snap-start flex-col justify-between rounded-[2rem] p-5 sm:w-[390px]">
-              <Image
-                src={poster}
-                alt={`${event.name} event poster`}
-                fill
-                sizes="(min-width: 640px) 390px, 84vw"
-                className="absolute inset-0 z-0 object-cover transition duration-500 group-hover:scale-[1.03]"
-              />
-              <div className="absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(0,0,0,0.08),rgba(0,0,0,0.20)_28%,rgba(0,0,0,0.90))]" />
-              <div className="relative z-10 flex items-start justify-between gap-3">
-                <span className="grid size-12 place-items-center rounded-2xl border border-white/15 bg-black/35 text-emerald-100 backdrop-blur">
-                  <Ticket size={22} />
-                </span>
-                <span className="rounded-full border border-white/15 bg-black/35 px-3 py-1 font-mono text-xs text-white/75">{event.event_code}</span>
-              </div>
-
-              <div className="relative z-10 mt-14">
-                <div className="mb-5 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-fuchsia-300/25 bg-fuchsia-300/[0.12] px-3 py-1 text-xs font-black text-fuchsia-100">Nightlife</span>
-                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/[0.12] px-3 py-1 text-xs font-black text-cyan-100">Wallet Ready</span>
-                  <span className="rounded-full border border-emerald-300/25 bg-emerald-300/[0.12] px-3 py-1 text-xs font-black text-emerald-100">#{String(index + 1).padStart(2, "0")}</span>
-                </div>
-                <p className="font-mono text-xs font-bold uppercase tracking-[0.28em] text-white/50">Live event</p>
-                <h3 className="premium-heading mt-2 text-4xl font-black leading-none">{event.name}</h3>
-                <p className="mt-4 flex items-center gap-2 text-sm font-semibold text-white/72">
-                  <CalendarDays size={16} />
-                  {new Date(event.start_time).toLocaleString()}
-                </p>
-                <div className="mt-6 rounded-3xl border border-white/12 bg-black/35 p-4 backdrop-blur">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">Access</p>
-                  <div className="mt-2 flex items-end justify-between gap-3">
-                    <span className="text-2xl font-black text-white">
-                      {event.lowestTicketPriceCents === null ? "Soon" : formatMoney(event.lowestTicketPriceCents, event.currency)}
-                    </span>
-                    <span className="text-sm font-black text-emerald-200">Tickets</span>
-                  </div>
-                  <p className="mt-2 text-xs font-semibold text-white/45">
-                    {event.lowestTicketPriceCents === null ? "Tickets soon" : `From ${formatMoney(event.lowestTicketPriceCents, event.currency)}`}
-                  </p>
-                </div>
-                <span className="neon-button mt-4 flex h-11 items-center justify-center rounded-2xl px-4 text-sm">View Event</span>
-              </div>
+              <Link key={event.id} href={`/events/${event.id}`} className="event-poster shine group flex w-[84vw] max-w-[390px] shrink-0 snap-start flex-col justify-end rounded-[2rem] p-5 sm:w-[390px]">
+                <Image
+                  src={poster}
+                  alt={`${event.name} event poster`}
+                  fill
+                  sizes="(min-width: 640px) 390px, 84vw"
+                  className="absolute inset-0 z-0 object-cover transition duration-500 group-hover:scale-[1.03]"
+                />
+                <div className="absolute inset-x-0 bottom-0 z-[1] h-40 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.76))]" />
+                <span className="neon-button relative z-10 mt-auto flex h-11 items-center justify-center rounded-2xl px-4 text-sm">View Event</span>
               </Link>
             );
           })}
