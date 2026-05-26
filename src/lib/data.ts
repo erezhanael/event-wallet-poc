@@ -1,6 +1,6 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
 import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketCancellationRequests, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
-import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, MenuItem, Ticket, TicketCancellationRequest, TicketType, Transaction, Wallet } from "./types";
+import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, MenuItem, Profile, Ticket, TicketCancellationRequest, TicketType, Transaction, Wallet } from "./types";
 
 export type PublicEventSummary = EventRecord & {
   ticketTypes: TicketType[];
@@ -17,6 +17,22 @@ export const defaultCancellationPolicy = {
   requires_approval: true,
   block_after_checkin: true,
 };
+
+export async function getProfile(userId?: string | null): Promise<Profile | null> {
+  if (!userId) return null;
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockProfiles.find((profile) => profile.id === userId) ?? mockProfiles[1] ?? null;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("users_profile")
+    .select("id, role, full_name, created_at")
+    .eq("id", userId)
+    .maybeSingle<Profile>();
+  if (error) return null;
+  return data;
+}
 
 export async function getEvents(): Promise<EventRecord[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [mockEvent];

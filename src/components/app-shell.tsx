@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CreditCard, LayoutDashboard, Martini, QrCode, TicketCheck } from "lucide-react";
 import { cookies } from "next/headers";
 import { isUserRole } from "@/lib/auth";
+import { getProfile } from "@/lib/data";
 import { MotionPanel } from "./motion-primitives";
 import { LogoutButton } from "./logout-button";
 
@@ -12,10 +13,21 @@ const nav = [
   { href: "/organizer/dashboard", label: "Organizer", icon: LayoutDashboard, role: "organizer" },
 ];
 
+function getInitials(name?: string | null) {
+  if (!name) return "EW";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const initials = parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : parts[0].slice(0, 2);
+  return initials.toUpperCase();
+}
+
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const role = cookieStore.get("event_wallet_role")?.value;
+  const userId = cookieStore.get("event_wallet_user_id")?.value;
+  const profile = await getProfile(userId);
   const visibleNav = isUserRole(role) ? nav.filter((item) => item.role === role) : [];
+  const displayName = profile?.full_name ?? (isUserRole(role) ? role : "Guest");
+  const initials = getInitials(displayName);
 
   return (
     <div className="nightlife-bg min-h-screen text-white">
@@ -28,6 +40,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <span>Event Wallet</span>
           </Link>
           <nav className="hidden gap-1 sm:flex">
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-sm font-semibold text-white/75">
+              <span className="grid size-8 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/[0.12] text-xs font-black text-cyan-100 shadow-[0_0_22px_rgba(103,232,249,0.16)]">
+                {initials}
+              </span>
+              <span className="max-w-32 truncate">{displayName}</span>
+            </div>
             {visibleNav.map((item) => (
               <Link
                 key={item.href}
@@ -43,6 +61,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         {visibleNav.length > 0 && (
           <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto border-t border-white/10 px-4 py-2 pb-3 sm:hidden">
+            <div className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/[0.10] py-1 pl-1 pr-3 text-sm font-semibold text-cyan-50">
+              <span className="grid size-9 place-items-center rounded-full border border-cyan-300/30 bg-cyan-300/[0.12] text-xs font-black text-cyan-100">
+                {initials}
+              </span>
+              <span className="max-w-28 truncate">{displayName}</span>
+            </div>
             {visibleNav.map((item) => (
               <Link
                 key={item.href}
