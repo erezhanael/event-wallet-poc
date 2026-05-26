@@ -138,6 +138,50 @@ await supabase.from("ticket_types").insert([
   },
 ]);
 
+const { data: lunaEvent, error: lunaEventError } = await supabase
+  .from("events")
+  .upsert(
+    {
+      organizer_id: ids.organizer,
+      name: "Luna Night",
+      event_code: "LUNA-2026",
+      start_time: "2026-09-18T20:00:00.000Z",
+      end_time: "2026-09-19T03:00:00.000Z",
+      currency: "ILS",
+    },
+    { onConflict: "event_code" },
+  )
+  .select()
+  .single();
+if (lunaEventError) throw lunaEventError;
+
+await supabase.from("event_members").upsert(
+  [
+    { event_id: lunaEvent.id, user_id: ids.organizer, role: "organizer" },
+    { event_id: lunaEvent.id, user_id: ids.bartender, role: "bartender" },
+    { event_id: lunaEvent.id, user_id: ids.checkin, role: "checkin" },
+  ],
+  { onConflict: "event_id,user_id" },
+);
+
+await supabase.from("ticket_types").delete().eq("event_id", lunaEvent.id);
+await supabase.from("ticket_types").insert([
+  {
+    event_id: lunaEvent.id,
+    name: "Moonlight Entry",
+    description: "Late-night access with wallet-ready bar payments.",
+    price_cents: 7200,
+    quantity_total: 180,
+  },
+  {
+    event_id: lunaEvent.id,
+    name: "Luna VIP",
+    description: "Priority entry and premium wristband lane.",
+    price_cents: 15500,
+    quantity_total: 40,
+  },
+]);
+
 await supabase.from("transactions").insert([
   {
     event_id: event.id,
@@ -150,6 +194,7 @@ await supabase.from("transactions").insert([
 
 console.log("Seed complete");
 console.log("Event code: NEON-2026");
+console.log("Event code: LUNA-2026");
 console.log("Attendee: attendee@example.com / password123");
 console.log("Bartender: bartender@example.com / password123");
 console.log("Check-In: checkin@example.com / password123");

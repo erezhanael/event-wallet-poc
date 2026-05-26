@@ -1,9 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, CalendarDays, CreditCard, QrCode, Sparkles, Ticket, Users } from "lucide-react";
+import { ArrowRight, CreditCard, QrCode, Sparkles, Ticket } from "lucide-react";
 import { PublicShell } from "@/components/public-shell";
 import { getPublicEventSummaries } from "@/lib/data";
-import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +62,7 @@ export default async function Home() {
           </div>
         </div>
 
-        <aside className="event-poster shine rounded-[2rem] p-5">
+        <aside className="event-poster shine flex rounded-[2rem] p-5">
           {featuredEvent && featuredPoster && (
             <>
               <Image
@@ -74,34 +73,12 @@ export default async function Home() {
                 sizes="(min-width: 1024px) 430px, 100vw"
                 className="absolute inset-0 z-0 object-cover"
               />
-              <div className="absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(0,0,0,0.08),rgba(0,0,0,0.26)_38%,rgba(0,0,0,0.88))]" />
+              <div className="absolute inset-x-0 bottom-0 z-[1] h-44 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.78))]" />
             </>
           )}
-          <div className="relative z-10 flex items-start justify-between">
-            <p className="rounded-full border border-white/15 bg-black/35 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white/70">Featured</p>
-            <span className="rounded-full border border-emerald-300/30 bg-emerald-300/[0.12] px-3 py-1 text-xs font-black text-emerald-100">Rooftop</span>
-          </div>
           {featuredEvent ? (
-            <div className="relative z-10 flex min-h-[27rem] flex-col justify-end">
-              <p className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.28em] text-cyan-100">{featuredEvent.event_code}</p>
-              <h2 className="premium-heading text-5xl font-black leading-none">{featuredEvent.name}</h2>
-              <div className="mt-5 space-y-3 text-sm text-white/72">
-                <p className="flex items-center gap-2">
-                  <CalendarDays size={16} />
-                  {new Date(featuredEvent.start_time).toLocaleString()}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Users size={16} />
-                  {featuredEvent.ticketsAvailable} tickets available
-                </p>
-              </div>
-              <div className="mt-6 rounded-3xl border border-emerald-300/25 bg-black/35 p-4 backdrop-blur">
-                <p className="text-sm text-emerald-100/70">Tickets from</p>
-                <p className="mt-1 text-4xl font-black text-white">
-                  {featuredEvent.lowestTicketPriceCents === null ? "Soon" : formatMoney(featuredEvent.lowestTicketPriceCents, featuredEvent.currency)}
-                </p>
-              </div>
-              <Link href={`/events/${featuredEvent.id}`} className="neon-button mt-5 flex h-12 items-center justify-center px-4 text-sm">
+            <div className="relative z-10 mt-auto flex min-h-[27rem] w-full flex-col justify-end">
+              <Link href={`/events/${featuredEvent.id}`} className="neon-button flex h-12 items-center justify-center px-4 text-sm">
                 View Tickets
               </Link>
             </div>
