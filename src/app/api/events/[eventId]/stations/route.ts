@@ -85,6 +85,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ eve
   const { data, error } = await supabase.from("pos_stations").insert(station).select("*").single();
 
   if (error) {
+    if (error.message.toLowerCase().includes("pos_stations")) {
+      return NextResponse.json({ error: "POS stations table is not ready yet. Apply supabase/009_pos_stations.sql, then try again." }, { status: 503 });
+    }
+
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 

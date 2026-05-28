@@ -159,7 +159,10 @@ export async function getEventStations(eventId: string, includeInactive = true):
   let query = supabase.from("pos_stations").select("*").eq("event_id", eventId).order("created_at", { ascending: true });
   if (!includeInactive) query = query.eq("active", true);
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.warn("Could not load POS stations", error.message);
+    return [];
+  }
   return data ?? [];
 }
 
