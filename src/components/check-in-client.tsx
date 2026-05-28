@@ -11,6 +11,15 @@ type LoadedTicket = {
   checkin?: { checked_in?: boolean; nfc_tag_uid?: string | null; nfc_status?: string | null };
 };
 
+type CashWallet = {
+  id: string;
+  balance_cents: number;
+  qr_token: string;
+  status: string;
+  attendee_name?: string | null;
+  nfc_status?: string | null;
+};
+
 type NfcReader = {
   scan: () => Promise<void>;
   write: (message: string) => Promise<void>;
@@ -25,11 +34,14 @@ export function CheckInClient({ eventId }: { eventId: string }) {
   const [tagUid, setTagUid] = useState("");
   const [loaded, setLoaded] = useState<LoadedTicket | null>(null);
   const [mode, setMode] = useState<"wristband" | "cash">("wristband");
-  const [message, setMessage] = useState("Scan or enter a ticket token to begin.");
+  const [message, setMessage] = useState("Load a ticket to assign or replace a wristband.");
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [isSaving, setIsSaving] = useState(false);
   const [isOffline, setIsOffline] = useState(() => (typeof navigator === "undefined" ? false : !navigator.onLine));
   const [walletToken, setWalletToken] = useState("");
+  const [cashLookupMode, setCashLookupMode] = useState<"nfc" | "qr">("nfc");
+  const [cashLookupValue, setCashLookupValue] = useState("");
+  const [cashWallet, setCashWallet] = useState<CashWallet | null>(null);
   const [cashAmount, setCashAmount] = useState("");
   const [applyBonus, setApplyBonus] = useState(true);
   const [bonusPercent, setBonusPercent] = useState("10");
@@ -43,6 +55,60 @@ export function CheckInClient({ eventId }: { eventId: string }) {
       window.removeEventListener("offline", update);
     };
   }, []);
+
+  useEffect(() => {
+    if (mode !== "cash") return;
+
+    const token = cashLookupValue.trim();
+    if (!token) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setStatus("idle");
+      setMessage(cashLookupMode === "nfc" ? "Looking up wristband wallet..." : "Looking up wallet QR...");
+
+      try {
+        const params =
+          cashLookupMode === "nfc"
+            ? new URLSearchParams({ eventId, tagUid: token })
+            : new URLSearchParams({ eventId, walletToken: token });
+        const response = await fetch(`/api/wallet?${params.toString()}`, { signal: controller.signal });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setWalletToken("");
+          setCashWallet(null);
+          setStatus("error");
+          setMessage(
+            response.status === 404
+              ? cashLookupMode === "nfc"
+                ? "No active wallet found for this wristband."
+                : "No active wallet found for this QR."
+              : payload.error ?? "Could not load wallet.",
+          );
+          return;
+        }
+
+        setWalletToken(payload.qr_token ?? token);
+        setCashWallet(payload);
+        setStatus("success");
+        setMessage("Wallet ready for cash top-up.");
+      } catch {
+        if (controller.signal.aborted) return;
+        setWalletToken("");
+        setCashWallet(null);
+        setStatus("error");
+        setMessage("Could not load wallet.");
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [cashLookupMode, cashLookupValue, eventId, mode]);
 
   const deviceId = useMemo(() => {
     if (typeof window === "undefined") return "server";
@@ -88,6 +154,14 @@ export function CheckInClient({ eventId }: { eventId: string }) {
     }
   }
 
+  function updateCashLookupValue(nextValue: string) {
+    setCashLookupValue(nextValue);
+    if (!nextValue.trim()) {
+      setWalletToken("");
+      setCashWallet(null);
+    }
+  }
+
   async function readNfc() {
     const Reader = (globalThis as typeof globalThis & { NDEFReader?: new () => NfcReader }).NDEFReader;
     if (!Reader) {
@@ -109,6 +183,34 @@ export function CheckInClient({ eventId }: { eventId: string }) {
       };
       await reader.scan();
       setMessage("Tap the NTAG216 wristband.");
+    } catch {
+      setStatus("error");
+      setMessage("NFC permission was blocked or unsupported. Enter UID manually.");
+    }
+  }
+
+  async function readCashNfc() {
+    const Reader = (globalThis as typeof globalThis & { NDEFReader?: new () => NfcReader }).NDEFReader;
+    if (!Reader) {
+      setStatus("error");
+      setMessage("Web NFC is not available in this browser. Enter the tag UID manually.");
+      return;
+    }
+
+    try {
+      const reader = new Reader();
+      reader.onreading = (event) => {
+        const uid = event.serialNumber ?? "";
+        setCashLookupValue(uid);
+        setStatus("success");
+        setMessage("NFC wristband read.");
+      };
+      reader.onreadingerror = () => {
+        setStatus("error");
+        setMessage("Could not read NFC wristband.");
+      };
+      await reader.scan();
+      setMessage("Tap the attendee wristband.");
     } catch {
       setStatus("error");
       setMessage("NFC permission was blocked or unsupported. Enter UID manually.");
@@ -199,7 +301,7 @@ export function CheckInClient({ eventId }: { eventId: string }) {
 
     if (!walletToken.trim()) {
       setStatus("error");
-      setMessage("Scan or enter an attendee wallet token.");
+      setMessage(cashLookupMode === "nfc" ? "Tap or enter a wristband first." : "Scan or enter the wallet QR fallback first.");
       return;
     }
 
@@ -234,6 +336,7 @@ export function CheckInClient({ eventId }: { eventId: string }) {
 
       setStatus("success");
       setCashAmount("");
+      setCashWallet(cashWallet ? { ...cashWallet, balance_cents: payload.balance_cents } : cashWallet);
       setMessage(
         `Cash deposited. Credited ${formatMoney(payload.total_credit_cents)} including ${formatMoney(payload.bonus_cents)} bonus.`,
       );
@@ -283,47 +386,87 @@ export function CheckInClient({ eventId }: { eventId: string }) {
           </button>
         </div>
 
-        <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
-          <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
-            <Search size={18} className="text-cyan-200" />
-            <input
-              value={ticketToken}
-              onChange={(event) => setTicketToken(event.target.value)}
-              className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
-              placeholder="ticket token, name, phone, or ticket id"
-            />
-          </label>
-          <button type="button" onClick={loadTicket} disabled={isSaving} className="neon-button h-12 px-5 text-sm disabled:opacity-50">
-            Scan Ticket QR
-          </button>
-        </div>
-
         {mode === "wristband" ? (
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
-              <Nfc size={18} className="text-emerald-200" />
-              <input
-                value={tagUid}
-                onChange={(event) => setTagUid(event.target.value)}
-                className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
-                placeholder="NTAG216 UID"
-              />
-            </label>
-            <button type="button" onClick={readNfc} className="h-12 rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-sm font-black text-white/75">
-              Scan NFC
-            </button>
+          <div className="mt-5 grid gap-4">
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+                <Search size={18} className="text-cyan-200" />
+                <input
+                  value={ticketToken}
+                  onChange={(event) => setTicketToken(event.target.value)}
+                  className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
+                  placeholder="ticket token, name, phone, or ticket id"
+                />
+              </label>
+              <button type="button" onClick={loadTicket} disabled={isSaving} className="neon-button h-12 px-5 text-sm disabled:opacity-50">
+                Load Ticket
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+                <Nfc size={18} className="text-emerald-200" />
+                <input
+                  value={tagUid}
+                  onChange={(event) => setTagUid(event.target.value)}
+                  className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
+                  placeholder="NTAG216 UID"
+                />
+              </label>
+              <button type="button" onClick={readNfc} className="h-12 rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-sm font-black text-white/75">
+                Scan NFC
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="mt-4 grid gap-3">
-            <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
-              <CreditCard size={18} className="text-emerald-200" />
-              <input
-                value={walletToken}
-                onChange={(event) => setWalletToken(event.target.value)}
-                className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
-                placeholder="wallet QR token"
-              />
-            </label>
+          <div className="mt-5 grid gap-3">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setCashLookupMode("nfc");
+                  updateCashLookupValue("");
+                }}
+                className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black ${cashLookupMode === "nfc" ? "neon-button" : "text-white/65 hover:bg-white/[0.08] hover:text-white"}`}
+              >
+                <Nfc size={16} />
+                Wristband
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCashLookupMode("qr");
+                  updateCashLookupValue("");
+                }}
+                className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black ${cashLookupMode === "qr" ? "neon-button" : "text-white/65 hover:bg-white/[0.08] hover:text-white"}`}
+              >
+                <CreditCard size={16} />
+                QR Fallback
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+                {cashLookupMode === "nfc" ? <Nfc size={18} className="text-emerald-200" /> : <CreditCard size={18} className="text-emerald-200" />}
+                <input
+                  value={cashLookupValue}
+                  onChange={(event) => updateCashLookupValue(event.target.value)}
+                  className="h-10 min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/35"
+                  placeholder={cashLookupMode === "nfc" ? "NFC wristband UID" : "wallet QR token"}
+                />
+              </label>
+              {cashLookupMode === "nfc" && (
+                <button type="button" onClick={readCashNfc} className="h-12 rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-sm font-black text-white/75">
+                  Scan NFC
+                </button>
+              )}
+            </div>
+            {cashWallet && (
+              <div className="grid gap-2 rounded-3xl border border-emerald-300/20 bg-emerald-300/[0.08] p-4 text-sm text-emerald-100 sm:grid-cols-2">
+                <p className="font-black">{cashWallet.attendee_name ?? "Wallet found"}</p>
+                <p className="font-black sm:text-right">{formatMoney(cashWallet.balance_cents)}</p>
+                <p className="text-emerald-100/70">Wallet {cashWallet.status}</p>
+                <p className="text-emerald-100/70 sm:text-right">NFC {cashWallet.nfc_status ?? "fallback"}</p>
+              </div>
+            )}
             <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
               <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
                 <Banknote size={18} className="text-cyan-200" />
