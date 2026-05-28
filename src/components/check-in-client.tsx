@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Banknote, CheckCircle, CreditCard, Nfc, Percent, Search, ShieldAlert, TicketCheck, WifiOff, XCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
+import { Banknote, Camera, CheckCircle, CreditCard, Nfc, Percent, Search, ShieldAlert, TicketCheck, WifiOff, X, XCircle } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 
 type LoadedTicket = {
@@ -19,6 +20,8 @@ type CashWallet = {
   attendee_name?: string | null;
   nfc_status?: string | null;
 };
+
+type ScanState = "idle" | "starting" | "unsupported" | "error";
 
 type NfcReader = {
   scan: () => Promise<void>;
@@ -42,9 +45,13 @@ export function CheckInClient({ eventId }: { eventId: string }) {
   const [cashLookupMode, setCashLookupMode] = useState<"nfc" | "qr">("nfc");
   const [cashLookupValue, setCashLookupValue] = useState("");
   const [cashWallet, setCashWallet] = useState<CashWallet | null>(null);
+  const [qrScanState, setQrScanState] = useState<ScanState>("idle");
+  const [qrScanMessage, setQrScanMessage] = useState("");
   const [cashAmount, setCashAmount] = useState("");
   const [applyBonus, setApplyBonus] = useState(true);
   const [bonusPercent, setBonusPercent] = useState("10");
+  const qrVideoRef = useRef<HTMLVideoElement>(null);
+  const qrScannerControlsRef = useRef<IScannerControls | null>(null);
 
   useEffect(() => {
     const update = () => setIsOffline(!navigator.onLine);
@@ -110,6 +117,61 @@ export function CheckInClient({ eventId }: { eventId: string }) {
     };
   }, [cashLookupMode, cashLookupValue, eventId, mode]);
 
+  useEffect(() => {
+    if (qrScanState !== "starting") return;
+
+    let isActive = true;
+
+    async function startScanner() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setQrScanState("unsupported");
+        setQrScanMessage("Camera access requires browser camera permission and a secure page.");
+        return;
+      }
+
+      const video = qrVideoRef.current;
+      if (!video) return;
+
+      try {
+        const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 250 });
+        const controls = await reader.decodeFromVideoDevice(undefined, video, (result) => {
+          const token = result?.getText().trim();
+          if (!token) return;
+
+          updateCashLookupValue(token);
+          setQrScanMessage("Wallet QR scanned.");
+          setQrScanState("idle");
+        });
+
+        if (!isActive) {
+          controls.stop();
+          return;
+        }
+
+        qrScannerControlsRef.current = controls;
+        setQrScanMessage("Point the camera at the attendee wallet QR.");
+      } catch {
+        setQrScanState("error");
+        setQrScanMessage("Camera permission was blocked or no camera was found. Manual token entry still works.");
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      isActive = false;
+      qrScannerControlsRef.current?.stop();
+      qrScannerControlsRef.current = null;
+    };
+  }, [qrScanState]);
+
+  useEffect(() => {
+    if (qrScanState === "starting") return;
+    stopQrCamera();
+  }, [qrScanState]);
+
+  useEffect(() => stopQrCamera, []);
+
   const deviceId = useMemo(() => {
     if (typeof window === "undefined") return "server";
     const existing = window.localStorage.getItem("event-wallet-device-id");
@@ -160,6 +222,25 @@ export function CheckInClient({ eventId }: { eventId: string }) {
       setWalletToken("");
       setCashWallet(null);
     }
+  }
+
+  function stopQrCamera() {
+    qrScannerControlsRef.current?.stop();
+    qrScannerControlsRef.current = null;
+    if (qrVideoRef.current) {
+      qrVideoRef.current.srcObject = null;
+    }
+  }
+
+  function startQrScan() {
+    setCashLookupMode("qr");
+    setQrScanState("starting");
+    setQrScanMessage("Starting camera...");
+  }
+
+  function cancelQrScan() {
+    setQrScanState("idle");
+    setQrScanMessage("");
   }
 
   async function readNfc() {
@@ -425,6 +506,7 @@ export function CheckInClient({ eventId }: { eventId: string }) {
                 onClick={() => {
                   setCashLookupMode("nfc");
                   updateCashLookupValue("");
+                  cancelQrScan();
                 }}
                 className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black ${cashLookupMode === "nfc" ? "neon-button" : "text-white/65 hover:bg-white/[0.08] hover:text-white"}`}
               >
@@ -458,7 +540,32 @@ export function CheckInClient({ eventId }: { eventId: string }) {
                   Scan NFC
                 </button>
               )}
+              {cashLookupMode === "qr" && (
+                <button
+                  type="button"
+                  onClick={qrScanState === "starting" ? cancelQrScan : startQrScan}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-sm font-black text-white/75"
+                >
+                  {qrScanState === "starting" ? <X size={17} /> : <Camera size={17} />}
+                  {qrScanState === "starting" ? "Stop" : "Scan QR"}
+                </button>
+              )}
             </div>
+            {cashLookupMode === "qr" && (qrScanState !== "idle" || qrScanMessage) && (
+              <div className="scan-frame overflow-hidden rounded-3xl bg-black text-white">
+                {qrScanState === "starting" && <video ref={qrVideoRef} playsInline muted className="aspect-video w-full bg-black object-cover opacity-85" />}
+                <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3 text-sm font-semibold">
+                  <span className={qrScanState === "unsupported" || qrScanState === "error" ? "text-red-200" : "text-cyan-100"}>
+                    {qrScanMessage || "Ready to scan."}
+                  </span>
+                  {(qrScanState === "unsupported" || qrScanState === "error") && (
+                    <button type="button" onClick={cancelQrScan} className="text-white/55 hover:text-white">
+                      Dismiss
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {cashWallet && (
               <div className="grid gap-2 rounded-3xl border border-emerald-300/20 bg-emerald-300/[0.08] p-4 text-sm text-emerald-100 sm:grid-cols-2">
                 <p className="font-black">{cashWallet.attendee_name ?? "Wallet found"}</p>
