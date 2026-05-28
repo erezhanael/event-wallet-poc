@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { mockWallet } from "@/lib/mock-data";
 import { createServiceSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
@@ -23,10 +24,13 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceSupabaseClient();
+  const cookieStore = await cookies();
+  const bartenderId = cookieStore.get("event_wallet_user_id")?.value ?? null;
   const { data, error } = await supabase.rpc("deduct_wallet_purchase", {
     p_event_id: eventId,
     p_qr_token: walletToken,
     p_items: items,
+    p_bartender_id: bartenderId,
   });
 
   if (error) {
