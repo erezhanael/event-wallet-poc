@@ -5,7 +5,7 @@ import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { Camera, CheckCircle, Minus, Nfc, Search, ShoppingCart, Trash2, X, XCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatMoney } from "@/lib/money";
-import type { MenuItem } from "@/lib/types";
+import type { MenuItem, PosStation } from "@/lib/types";
 
 type Cart = Record<string, number>;
 type ScanState = "idle" | "starting" | "unsupported" | "error";
@@ -17,7 +17,7 @@ type NfcReader = {
   onreadingerror: (() => void) | null;
 };
 
-export function CheckoutClient({ eventId, currency, menuItems }: { eventId: string; currency?: string; menuItems: MenuItem[] }) {
+export function CheckoutClient({ eventId, currency, menuItems, stations }: { eventId: string; currency?: string; menuItems: MenuItem[]; stations: PosStation[] }) {
   const [walletToken, setWalletToken] = useState("");
   const [chargeWalletToken, setChargeWalletToken] = useState("");
   const [lookupMode, setLookupMode] = useState<LookupMode>("qr");
@@ -30,6 +30,10 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
   const [message, setMessage] = useState("");
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [scanMessage, setScanMessage] = useState("");
+  const [selectedStationId, setSelectedStationId] = useState(() => {
+    if (typeof window === "undefined") return stations[0]?.id ?? "";
+    return window.localStorage.getItem(`event-wallet-station-${eventId}`) ?? stations[0]?.id ?? "";
+  });
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
 
@@ -38,6 +42,7 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
     [cart, menuItems],
   );
   const canCharge = total > 0 && lookupState === "found" && walletStatus === "active" && balance !== null;
+  const selectedStation = stations.find((station) => station.id === selectedStationId) ?? stations[0] ?? null;
 
   function updateWalletToken(nextToken: string, mode: LookupMode = "qr") {
     setWalletToken(nextToken);
@@ -211,6 +216,30 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
     setCart({});
   }
 
+  function updateSelectedStation(stationId: string) {
+    setSelectedStationId(stationId);
+    window.localStorage.setItem(`event-wallet-station-${eventId}`, stationId);
+  }
+
+  function publishMonitorUpdate(previousBalanceCents: number, purchaseCents: number, remainingBalanceCents: number) {
+    if (!selectedStation) return;
+
+    const payload = {
+      attendeeName: attendeeName || "Guest",
+      previousBalanceCents,
+      purchaseCents,
+      remainingBalanceCents,
+      status: "approved",
+      syncStatus: "local",
+      updatedAt: new Date().toISOString(),
+    };
+
+    window.localStorage.setItem(`station-monitor-last-${selectedStation.id}`, JSON.stringify(payload));
+    const channel = new BroadcastChannel(`station-monitor:${selectedStation.id}`);
+    channel.postMessage(payload);
+    channel.close();
+  }
+
   function startScan() {
     setStatus("idle");
     setScanMessage("Starting camera...");
@@ -265,7 +294,9 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
       return;
     }
 
-    setBalance(payload.balance_cents ?? balance - total);
+    const nextBalance = payload.balance_cents ?? balance - total;
+    publishMonitorUpdate(balance, total, nextBalance);
+    setBalance(nextBalance);
     setCart({});
     setStatus("success");
     setMessage("Payment complete");
@@ -337,6 +368,32 @@ export function CheckoutClient({ eventId, currency, menuItems }: { eventId: stri
           <h2 className="text-lg font-black text-white">Checkout</h2>
           <ShoppingCart size={18} className="text-emerald-200" />
         </div>
+        {stations.length > 0 ? (
+          <label className="mt-4 block text-sm font-semibold text-white/70">
+            Station
+            <select
+              value={selectedStation?.id ?? ""}
+              onChange={(event) => updateSelectedStation(event.target.value)}
+              className="mt-1 h-11 w-full rounded-2xl border border-white/10 bg-black/25 px-3 text-sm text-white outline-none focus:border-cyan-300/60"
+            >
+              {stations.map((station) => (
+                <option key={station.id} value={station.id}>
+                  {station.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <p className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/[0.08] p-3 text-sm font-bold text-amber-100">
+            No active stations configured.
+          </p>
+        )}
+        {selectedStation && (
+          <div className="mt-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] p-3 text-sm text-cyan-100">
+            <p className="font-black">{selectedStation.name} monitor</p>
+            <p className="mt-1 font-mono text-lg font-black">{selectedStation.pairing_code}</p>
+          </div>
+        )}
         <div className="shine mt-4 overflow-hidden rounded-3xl border border-emerald-300/20 bg-emerald-300/[0.10] p-4 text-white shadow-[0_0_40px_rgba(34,197,94,0.16)]">
           <p className="text-sm text-emerald-100/75">Wallet</p>
           {lookupState === "empty" && <p className="mt-2 text-sm font-semibold text-white/70">Scan QR or enter token to show balance.</p>}

@@ -60,6 +60,29 @@ export type BartenderShiftSummary = BartenderShift & {
   bartender_email: string | null;
 };
 
+export type PosStation = {
+  id: string;
+  event_id: string;
+  name: string;
+  station_type: "bar" | "food" | "merch" | "other";
+  pairing_code: string;
+  monitor_slug: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StationSession = {
+  id: string;
+  event_id: string;
+  station_id: string;
+  staff_user_id: string;
+  monitor_device_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+};
+
 export type Transaction = {
   id: string;
   event_id: string;

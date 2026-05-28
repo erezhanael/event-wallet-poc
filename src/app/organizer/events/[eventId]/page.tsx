@@ -3,11 +3,12 @@ import { Download, ListPlus, ReceiptText, RotateCcw, Ticket } from "lucide-react
 import { AppShell } from "@/components/app-shell";
 import { BartenderManager } from "@/components/bartender-manager";
 import { TapMotion } from "@/components/motion-primitives";
-import { getEvent, getEventBartenders } from "@/lib/data";
+import { StationManager } from "@/components/station-manager";
+import { getEvent, getEventBartenders, getEventStations } from "@/lib/data";
 
 export default async function EventAdminPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const [event, bartenders] = await Promise.all([getEvent(eventId), getEventBartenders(eventId)]);
+  const [event, bartenders, stations] = await Promise.all([getEvent(eventId), getEventBartenders(eventId), getEventStations(eventId)]);
 
   if (!event) return <AppShell><p>Event not found.</p></AppShell>;
 
@@ -50,6 +51,9 @@ export default async function EventAdminPage({ params }: { params: Promise<{ eve
       </div>
       <div className="mt-4">
         <BartenderManager eventId={event.id} initialBartenders={bartenders} />
+      </div>
+      <div className="mt-4">
+        <StationManager eventId={event.id} initialStations={stations} />
       </div>
       <a href={`/api/export-transactions/${event.id}`} className="neon-button mt-5 inline-flex items-center gap-2 px-4 py-3 text-sm">
         <Download size={16} />

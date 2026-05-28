@@ -10,6 +10,8 @@ drop function if exists public.is_event_member(uuid, text);
 
 drop table if exists public.stripe_payments cascade;
 drop table if exists public.bartender_shifts cascade;
+drop table if exists public.station_sessions cascade;
+drop table if exists public.pos_stations cascade;
 drop table if exists public.nfc_assignment_logs cascade;
 drop table if exists public.attendee_checkins cascade;
 drop table if exists public.tickets cascade;

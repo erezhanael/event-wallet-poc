@@ -1,6 +1,6 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
-import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockTicketCancellationRequests, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
-import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, MenuItem, Profile, Ticket, TicketCancellationRequest, TicketPromotion, TicketType, Transaction, Wallet } from "./types";
+import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockStations, mockTicketCancellationRequests, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
+import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, MenuItem, PosStation, Profile, Ticket, TicketCancellationRequest, TicketPromotion, TicketType, Transaction, Wallet } from "./types";
 
 export type PublicEventSummary = EventRecord & {
   ticketTypes: TicketType[];
@@ -148,6 +148,35 @@ export async function getOrganizerMenuItems(eventId: string): Promise<MenuItem[]
     .order("name");
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getEventStations(eventId: string, includeInactive = true): Promise<PosStation[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockStations.filter((station) => station.event_id === eventId && (includeInactive || station.active));
+  }
+
+  const supabase = createServiceSupabaseClient();
+  let query = supabase.from("pos_stations").select("*").eq("event_id", eventId).order("created_at", { ascending: true });
+  if (!includeInactive) query = query.eq("active", true);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getStationByMonitorSlug(eventId: string, monitorSlug: string): Promise<PosStation | null> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockStations.find((station) => station.event_id === eventId && station.monitor_slug === monitorSlug) ?? null;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from("pos_stations")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("monitor_slug", monitorSlug)
+    .maybeSingle();
+  if (error) return null;
+  return data;
 }
 
 export async function getTicketTypes(eventId: string, includeInactive = false): Promise<TicketType[]> {

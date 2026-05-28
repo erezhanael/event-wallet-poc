@@ -3,6 +3,7 @@ import type {
   CancellationPolicy,
   EventRecord,
   MenuItem,
+  PosStation,
   Profile,
   TicketCancellationRequest,
   Ticket,
@@ -60,6 +61,31 @@ export const mockMenuItems: MenuItem[] = [
   { id: "m4", event_id: mockEvent.id, name: "Mineral Water", price_cents: 1200, category: "Soft", active: true },
   { id: "m5", event_id: mockEvent.id, name: "Energy Drink", price_cents: 1800, category: "Soft", active: true },
   { id: "m6", event_id: mockEvent.id, name: "House Shot", price_cents: 2200, category: "Shot", active: true },
+];
+
+export const mockStations: PosStation[] = [
+  {
+    id: "station-main-bar",
+    event_id: mockEvent.id,
+    name: "Main Bar",
+    station_type: "bar",
+    pairing_code: "4821",
+    monitor_slug: "main-bar",
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "station-food-truck",
+    event_id: mockEvent.id,
+    name: "Food Truck",
+    station_type: "food",
+    pairing_code: "9136",
+    monitor_slug: "food-truck",
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
 ];
 
 export const mockTicketTypes: TicketType[] = [
