@@ -21,8 +21,8 @@ export default async function BartenderCheckoutPage({ params }: { params: Promis
     <AppShell>
       <div className="mb-4">
         <p className="neon-badge w-fit border-fuchsia-300/30 bg-fuchsia-300/[0.10] text-fuchsia-100">High-speed bar POS</p>
-        <h1 className="premium-heading mt-3 text-4xl sm:text-5xl">Checkout</h1>
-        <p className="mt-2 text-white/55">Scan the QR code, tap items, and charge the wallet.</p>
+        <h1 className="premium-heading mt-3 text-4xl sm:text-5xl">POS</h1>
+        <p className="mt-2 text-white/55">Select a station, scan the wallet, sell items, and show the attendee balance.</p>
       </div>
       <ShiftControls eventId={eventId} initialShift={currentShift} />
       <CheckoutClient eventId={eventId} currency={event.currency} menuItems={menuItems} stations={stations} />

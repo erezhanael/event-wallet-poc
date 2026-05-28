@@ -365,7 +365,7 @@ export function CheckoutClient({ eventId, currency, menuItems, stations }: { eve
       </section>
       <aside className="glass-card h-fit p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-black text-white">Checkout</h2>
+          <h2 className="text-lg font-black text-white">POS Sale</h2>
           <ShoppingCart size={18} className="text-emerald-200" />
         </div>
         {stations.length > 0 ? (
