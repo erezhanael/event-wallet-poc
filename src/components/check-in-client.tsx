@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import { Banknote, Camera, CheckCircle, CreditCard, Nfc, Percent, Search, ShieldAlert, TicketCheck, WifiOff, X, XCircle } from "lucide-react";
 import { formatMoney } from "@/lib/money";
@@ -45,13 +45,56 @@ export function CheckInClient({ eventId }: { eventId: string }) {
   const [cashLookupMode, setCashLookupMode] = useState<"nfc" | "qr">("nfc");
   const [cashLookupValue, setCashLookupValue] = useState("");
   const [cashWallet, setCashWallet] = useState<CashWallet | null>(null);
+  const [ticketScanState, setTicketScanState] = useState<ScanState>("idle");
+  const [ticketScanMessage, setTicketScanMessage] = useState("");
   const [qrScanState, setQrScanState] = useState<ScanState>("idle");
   const [qrScanMessage, setQrScanMessage] = useState("");
   const [cashAmount, setCashAmount] = useState("");
   const [applyBonus, setApplyBonus] = useState(true);
   const [bonusPercent, setBonusPercent] = useState("10");
+  const ticketVideoRef = useRef<HTMLVideoElement>(null);
+  const ticketScannerControlsRef = useRef<IScannerControls | null>(null);
   const qrVideoRef = useRef<HTMLVideoElement>(null);
   const qrScannerControlsRef = useRef<IScannerControls | null>(null);
+
+  const loadTicket = useCallback(
+    async (nextTicketToken = ticketToken) => {
+      const token = nextTicketToken.trim();
+      if (!token) {
+        setStatus("error");
+        setMessage("Enter a ticket token.");
+        return;
+      }
+
+      setIsSaving(true);
+      setMessage("Loading ticket...");
+
+      try {
+        const response = await fetch("/api/check-in/ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId, ticketToken: token }),
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setLoaded(null);
+          setStatus("error");
+          setMessage(payload.error ?? "Ticket invalid");
+          return;
+        }
+
+        setLoaded(payload);
+        setTagUid(payload.checkin?.nfc_tag_uid ?? "");
+        setWalletToken(payload.wallet?.qr_token ?? "");
+        setStatus("success");
+        setMessage(payload.ticket?.status === "checked_in" ? "Ticket already checked in" : "Ticket valid");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [eventId, ticketToken],
+  );
 
   useEffect(() => {
     const update = () => setIsOffline(!navigator.onLine);
@@ -118,6 +161,62 @@ export function CheckInClient({ eventId }: { eventId: string }) {
   }, [cashLookupMode, cashLookupValue, eventId, mode]);
 
   useEffect(() => {
+    if (ticketScanState !== "starting") return;
+
+    let isActive = true;
+
+    async function startScanner() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setTicketScanState("unsupported");
+        setTicketScanMessage("Camera access requires browser camera permission and a secure page.");
+        return;
+      }
+
+      const video = ticketVideoRef.current;
+      if (!video) return;
+
+      try {
+        const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 250 });
+        const controls = await reader.decodeFromVideoDevice(undefined, video, (result) => {
+          const token = result?.getText().trim();
+          if (!token) return;
+
+          setTicketToken(token);
+          setTicketScanMessage("Ticket QR scanned.");
+          setTicketScanState("idle");
+          void loadTicket(token);
+        });
+
+        if (!isActive) {
+          controls.stop();
+          return;
+        }
+
+        ticketScannerControlsRef.current = controls;
+        setTicketScanMessage("Point the camera at the attendee ticket QR.");
+      } catch {
+        setTicketScanState("error");
+        setTicketScanMessage("Camera permission was blocked or no camera was found. Manual token entry still works.");
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      isActive = false;
+      ticketScannerControlsRef.current?.stop();
+      ticketScannerControlsRef.current = null;
+    };
+  }, [loadTicket, ticketScanState]);
+
+  useEffect(() => {
+    if (ticketScanState === "starting") return;
+    stopTicketCamera();
+  }, [ticketScanState]);
+
+  useEffect(() => stopTicketCamera, []);
+
+  useEffect(() => {
     if (qrScanState !== "starting") return;
 
     let isActive = true;
@@ -181,47 +280,31 @@ export function CheckInClient({ eventId }: { eventId: string }) {
     return next;
   }, []);
 
-  async function loadTicket() {
-    if (!ticketToken.trim()) {
-      setStatus("error");
-      setMessage("Enter a ticket token.");
-      return;
-    }
-
-    setIsSaving(true);
-    setMessage("Loading ticket...");
-
-    try {
-      const response = await fetch("/api/check-in/ticket", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, ticketToken }),
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        setLoaded(null);
-        setStatus("error");
-        setMessage(payload.error ?? "Ticket invalid");
-        return;
-      }
-
-      setLoaded(payload);
-      setTagUid(payload.checkin?.nfc_tag_uid ?? "");
-      setWalletToken(payload.wallet?.qr_token ?? "");
-      setStatus("success");
-      setMessage(payload.ticket?.status === "checked_in" ? "Ticket already checked in" : "Ticket valid");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   function updateCashLookupValue(nextValue: string) {
     setCashLookupValue(nextValue);
     if (!nextValue.trim()) {
       setWalletToken("");
       setCashWallet(null);
     }
+  }
+
+  function stopTicketCamera() {
+    ticketScannerControlsRef.current?.stop();
+    ticketScannerControlsRef.current = null;
+    if (ticketVideoRef.current) {
+      ticketVideoRef.current.srcObject = null;
+    }
+  }
+
+  function startTicketScan() {
+    cancelQrScan();
+    setTicketScanState("starting");
+    setTicketScanMessage("Starting camera...");
+  }
+
+  function cancelTicketScan() {
+    setTicketScanState("idle");
+    setTicketScanMessage("");
   }
 
   function stopQrCamera() {
@@ -233,6 +316,7 @@ export function CheckInClient({ eventId }: { eventId: string }) {
   }
 
   function startQrScan() {
+    cancelTicketScan();
     setCashLookupMode("qr");
     setQrScanState("starting");
     setQrScanMessage("Starting camera...");
@@ -469,7 +553,7 @@ export function CheckInClient({ eventId }: { eventId: string }) {
 
         {mode === "wristband" ? (
           <div className="mt-5 grid gap-4">
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
               <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
                 <Search size={18} className="text-cyan-200" />
                 <input
@@ -479,10 +563,33 @@ export function CheckInClient({ eventId }: { eventId: string }) {
                   placeholder="ticket token, name, phone, or ticket id"
                 />
               </label>
-              <button type="button" onClick={loadTicket} disabled={isSaving} className="neon-button h-12 px-5 text-sm disabled:opacity-50">
+              <button type="button" onClick={() => loadTicket()} disabled={isSaving} className="neon-button h-12 px-5 text-sm disabled:opacity-50">
                 Load Ticket
               </button>
+              <button
+                type="button"
+                onClick={ticketScanState === "starting" ? cancelTicketScan : startTicketScan}
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.08] px-5 text-sm font-black text-white/75"
+              >
+                {ticketScanState === "starting" ? <X size={17} /> : <Camera size={17} />}
+                {ticketScanState === "starting" ? "Stop" : "Scan QR"}
+              </button>
             </div>
+            {(ticketScanState !== "idle" || ticketScanMessage) && (
+              <div className="scan-frame overflow-hidden rounded-3xl bg-black text-white">
+                {ticketScanState === "starting" && <video ref={ticketVideoRef} playsInline muted className="aspect-video w-full bg-black object-cover opacity-85" />}
+                <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3 text-sm font-semibold">
+                  <span className={ticketScanState === "unsupported" || ticketScanState === "error" ? "text-red-200" : "text-cyan-100"}>
+                    {ticketScanMessage || "Ready to scan."}
+                  </span>
+                  {(ticketScanState === "unsupported" || ticketScanState === "error") && (
+                    <button type="button" onClick={cancelTicketScan} className="text-white/55 hover:text-white">
+                      Dismiss
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
                 <Nfc size={18} className="text-emerald-200" />
