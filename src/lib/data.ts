@@ -401,7 +401,7 @@ function buildNeonRooftopMockupDashboard(): TicketSalesDashboard {
 }
 
 export async function getTicketSalesDashboard(eventId: string, dataMode: "mockup" | "live" = "live"): Promise<TicketSalesDashboard> {
-  if (eventId === mockEvent.id && dataMode === "mockup") {
+  if (dataMode === "mockup") {
     return buildNeonRooftopMockupDashboard();
   }
 

@@ -5,7 +5,9 @@ import { TicketSalesDashboard } from "@/components/ticket-sales-dashboard";
 import { TicketTypeManager } from "@/components/ticket-type-manager";
 import { getEvent, getTicketPromotions, getTicketSalesDashboard, getTicketTypes } from "@/lib/data";
 
-const neonRooftopEventId = "11111111-1111-4111-8111-111111111111";
+function isNeonRooftopEvent(event: { event_code?: string | null; name?: string | null }) {
+  return event.event_code === "NEON-2026" || (event.name ?? "").toLowerCase().includes("neon rooftop");
+}
 
 export default async function TicketsPage({
   params,
@@ -16,16 +18,17 @@ export default async function TicketsPage({
 }) {
   const { eventId } = await params;
   const { ticketData } = await searchParams;
-  const showProducerToggle = eventId === neonRooftopEventId;
+  const event = await getEvent(eventId);
+
+  if (!event) return <AppShell><p>Event not found.</p></AppShell>;
+
+  const showProducerToggle = isNeonRooftopEvent(event);
   const ticketDataMode = showProducerToggle && ticketData !== "live" ? "mockup" : "live";
-  const [event, ticketTypes, promotions, ticketSalesDashboard] = await Promise.all([
-    getEvent(eventId),
+  const [ticketTypes, promotions, ticketSalesDashboard] = await Promise.all([
     getTicketTypes(eventId, true),
     getTicketPromotions(eventId).catch(() => []),
     getTicketSalesDashboard(eventId, ticketDataMode),
   ]);
-
-  if (!event) return <AppShell><p>Event not found.</p></AppShell>;
 
   return (
     <AppShell>
