@@ -1,4 +1,4 @@
-import { AlertTriangle, Banknote, CheckCircle2, Percent, RotateCcw, TicketCheck, Users } from "lucide-react";
+import { AlertTriangle, Banknote, CheckCircle2, Info, Percent, RotateCcw, TicketCheck, TrendingUp, Users } from "lucide-react";
 import { formatMoney } from "@/lib/money";
 import type { TicketSalesDashboard as TicketSalesDashboardData } from "@/lib/types";
 
@@ -33,6 +33,76 @@ function MetricTile({ label, value, detail, icon: Icon }: { label: string; value
   );
 }
 
+function SalesTimelineChart({ data, currency }: { data: TicketSalesDashboardData["salesTimeline"]; currency?: string }) {
+  const maxTickets = Math.max(...data.map((point) => point.ticketsSold), 1);
+  const milestonePoints = data.filter((point) => point.milestone);
+
+  return (
+    <section className="mt-5 rounded-3xl border border-white/10 bg-black/20 p-4">
+      <div className="mb-4 flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
+        <div>
+          <div className="flex items-center gap-2">
+            <TrendingUp size={18} className="text-cyan-200" />
+            <h3 className="font-black text-white">Ticket Sales Over Time</h3>
+          </div>
+          <p className="mt-1 text-sm text-white/55">Mockup plot: opening rush, post-launch slowdown, and a second peak after the discount round.</p>
+        </div>
+        <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-2 text-sm font-bold text-cyan-100">
+          Peak day: {Math.max(...data.map((point) => point.ticketsSold))} tickets
+        </div>
+      </div>
+
+      <div className="overflow-x-auto pb-2">
+        <div className="flex min-w-[760px] items-end gap-3 border-b border-white/10 pb-3">
+          {data.map((point) => {
+            const height = Math.max(18, (point.ticketsSold / maxTickets) * 190);
+            const isMilestone = Boolean(point.milestone);
+
+            return (
+              <div key={point.date} className="flex flex-1 flex-col items-center gap-2">
+                <div className="flex h-40 w-full items-end justify-center">
+                  <div className="relative flex w-full max-w-12 justify-center">
+                    {isMilestone && (
+                      <div className="absolute bottom-[calc(100%+10px)] left-1/2 z-10 w-32 -translate-x-1/2 rounded-2xl border border-fuchsia-300/25 bg-fuchsia-300/[0.14] px-2 py-1 text-center text-[11px] font-black leading-tight text-fuchsia-50">
+                        {point.milestone}
+                      </div>
+                    )}
+                    <div
+                      className={`w-full rounded-t-2xl ${isMilestone ? "bg-gradient-to-t from-fuchsia-400 via-cyan-300 to-emerald-200 shadow-[0_0_24px_rgba(217,70,239,0.28)]" : "bg-white/20"}`}
+                      style={{ height }}
+                      title={`${point.label}: ${point.ticketsSold} tickets, ${formatMoney(point.revenueCents, currency)}`}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs font-black text-white">{point.ticketsSold}</p>
+                <p className="text-[11px] font-bold text-white/45">{point.label}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        {milestonePoints.map((point) => (
+          <article key={point.date} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/40">{point.label}</p>
+            <p className="mt-1 font-black text-white">{point.milestone}</p>
+            <p className="mt-2 text-sm text-white/55">{point.note}</p>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <p className="rounded-xl bg-black/25 p-2 text-white/55">
+                Tickets <span className="font-black text-white">{point.ticketsSold}</span>
+              </p>
+              <p className="rounded-xl bg-black/25 p-2 text-white/55">
+                Revenue <span className="font-black text-white">{formatMoney(point.revenueCents, currency)}</span>
+              </p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function TicketSalesDashboard({ metrics, currency }: { metrics: TicketSalesDashboardData; currency?: string }) {
   const sellThrough = percent(metrics.totalSold, metrics.totalCapacity);
   const maxTypeSold = Math.max(...metrics.ticketTypeSales.map((ticketType) => ticketType.soldCount), 1);
@@ -44,7 +114,7 @@ export function TicketSalesDashboard({ metrics, currency }: { metrics: TicketSal
         <div>
           <p className="neon-badge w-fit border-emerald-300/30 bg-emerald-300/[0.10] text-emerald-100">Ticket sales dashboard</p>
           <h2 className="mt-3 text-2xl font-black text-white">Producer Sales Snapshot</h2>
-          <p className="mt-1 text-sm text-white/55">Revenue, ticket mix, coupon usage, and cancellation reasons for the event.</p>
+          <p className="mt-1 text-sm text-white/55">Revenue, ticket mix, coupon usage, sales momentum, and cancellation reasons for the event.</p>
         </div>
         <div className="rounded-3xl border border-emerald-300/20 bg-emerald-300/[0.10] px-4 py-3">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-100/70">Sell-through</p>
@@ -55,12 +125,24 @@ export function TicketSalesDashboard({ metrics, currency }: { metrics: TicketSal
         </div>
       </div>
 
+      <div className="mb-5 flex items-start gap-3 rounded-3xl border border-amber-300/25 bg-amber-300/[0.10] p-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-amber-300/[0.14] text-amber-100">
+          <Info size={18} />
+        </span>
+        <div>
+          <p className="font-black text-white">{metrics.dataMode === "mockup" ? "Mockup information for producer review" : "Live sales information"}</p>
+          <p className="mt-1 text-sm text-white/60">{metrics.headlineNote}</p>
+        </div>
+      </div>
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Net ticket sales" value={formatMoney(metrics.netSalesCents, currency)} detail={`${metrics.totalSold} sold of ${metrics.totalCapacity}`} icon={Banknote} />
         <MetricTile label="Average paid" value={formatMoney(metrics.averagePaidCents, currency)} detail="Across active and checked-in tickets" icon={TicketCheck} />
         <MetricTile label="Coupon discount" value={formatMoney(metrics.discountCents, currency)} detail={`${metrics.promoSales.filter((promo) => promo.kind !== "full_price").reduce((sum, promo) => sum + promo.soldCount, 0)} coupon tickets`} icon={Percent} />
         <MetricTile label="Refund exposure" value={formatMoney(metrics.refundExposureCents, currency)} detail={`${metrics.cancelledTickets + metrics.refundedTickets} cancelled or refunded tickets`} icon={RotateCcw} />
       </div>
+
+      <SalesTimelineChart data={metrics.salesTimeline} currency={currency} />
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_380px]">
         <section className="rounded-3xl border border-white/10 bg-black/20 p-4">

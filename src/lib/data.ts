@@ -1,5 +1,5 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
-import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockStations, mockTicketCancellationRequests, mockTicketPromotions, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
+import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockStations, mockTicketCancellationRequests, mockTicketPromotions, mockTicketSalesTimeline, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
 import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, EventVendor, MenuItem, PosStation, Profile, Ticket, TicketCancellationRequest, TicketPromotion, TicketSalesDashboard, TicketType, Transaction, Wallet } from "./types";
 
 export type PublicEventSummary = EventRecord & {
@@ -259,7 +259,13 @@ function normalizeCancellationReason(reason: string) {
   return reason.trim() || "Other";
 }
 
-function buildTicketSalesDashboard(ticketTypes: TicketType[], tickets: Ticket[], promotions: TicketPromotion[], cancellations: TicketCancellationRequest[]): TicketSalesDashboard {
+function buildTicketSalesDashboard(
+  ticketTypes: TicketType[],
+  tickets: Ticket[],
+  promotions: TicketPromotion[],
+  cancellations: TicketCancellationRequest[],
+  options: Pick<TicketSalesDashboard, "dataMode" | "headlineNote"> & { salesTimeline?: TicketSalesDashboard["salesTimeline"] },
+): TicketSalesDashboard {
   const ticketsByType = new Map<string, Ticket[]>();
   for (const ticket of tickets) {
     const group = ticketsByType.get(ticket.ticket_type_id) ?? [];
@@ -327,8 +333,11 @@ function buildTicketSalesDashboard(ticketTypes: TicketType[], tickets: Ticket[],
   }
 
   const statusOrder: TicketCancellationRequest["status"][] = ["pending", "approved", "rejected"];
+  const salesTimeline = options.salesTimeline ?? buildSalesTimeline(tickets);
 
   return {
+    dataMode: options.dataMode,
+    headlineNote: options.headlineNote,
     totalCapacity,
     totalSold: tickets.length || ticketTypes.reduce((sum, ticketType) => sum + ticketType.quantity_sold, 0),
     activeTickets: tickets.filter((ticket) => ticket.status === "active").length,
@@ -347,7 +356,34 @@ function buildTicketSalesDashboard(ticketTypes: TicketType[], tickets: Ticket[],
       status,
       count: cancellations.filter((request) => request.status === status).length,
     })),
+    salesTimeline,
   };
+}
+
+function buildSalesTimeline(tickets: Ticket[]): TicketSalesDashboard["salesTimeline"] {
+  const activeStatuses = new Set<Ticket["status"]>(["active", "checked_in"]);
+  const salesByDate = new Map<string, { ticketsSold: number; revenueCents: number }>();
+  for (const ticket of tickets.filter((candidate) => activeStatuses.has(candidate.status))) {
+    const date = ticket.purchased_at.slice(0, 10);
+    const current = salesByDate.get(date) ?? { ticketsSold: 0, revenueCents: 0 };
+    current.ticketsSold += 1;
+    current.revenueCents += ticket.paid_amount_cents;
+    salesByDate.set(date, current);
+  }
+
+  let cumulativeSold = 0;
+  return Array.from(salesByDate.entries())
+    .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate))
+    .map(([date, value]) => {
+      cumulativeSold += value.ticketsSold;
+      return {
+        date,
+        label: new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(`${date}T00:00:00.000Z`)),
+        ticketsSold: value.ticketsSold,
+        cumulativeSold,
+        revenueCents: value.revenueCents,
+      };
+    });
 }
 
 export async function getTicketSalesDashboard(eventId: string): Promise<TicketSalesDashboard> {
@@ -357,6 +393,11 @@ export async function getTicketSalesDashboard(eventId: string): Promise<TicketSa
       mockTickets.filter((ticket) => ticket.event_id === eventId),
       mockTicketPromotions.filter((promotion) => promotion.event_id === eventId),
       mockTicketCancellationRequests.filter((request) => request.event_id === eventId),
+      {
+        dataMode: "mockup",
+        headlineNote: "Mockup data for the producer meeting: built to show demand waves, discount impact, and cancellation risks before live reporting is connected.",
+        salesTimeline: mockTicketSalesTimeline,
+      },
     );
   }
 
@@ -378,6 +419,10 @@ export async function getTicketSalesDashboard(eventId: string): Promise<TicketSa
     (tickets ?? []) as Ticket[],
     (promotions ?? []) as TicketPromotion[],
     (cancellations ?? []) as TicketCancellationRequest[],
+    {
+      dataMode: "live",
+      headlineNote: "Live ticket data from event sales, coupons, and cancellation requests.",
+    },
   );
 }
 

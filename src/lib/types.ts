@@ -254,6 +254,8 @@ export type DashboardMetrics = {
 };
 
 export type TicketSalesDashboard = {
+  dataMode: "mockup" | "live";
+  headlineNote: string;
   totalCapacity: number;
   totalSold: number;
   activeTickets: number;
@@ -292,5 +294,14 @@ export type TicketSalesDashboard = {
   cancellationStatuses: Array<{
     status: TicketCancellationRequest["status"];
     count: number;
+  }>;
+  salesTimeline: Array<{
+    date: string;
+    label: string;
+    ticketsSold: number;
+    cumulativeSold: number;
+    revenueCents: number;
+    milestone?: string;
+    note?: string;
   }>;
 };
