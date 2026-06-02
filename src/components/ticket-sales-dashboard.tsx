@@ -33,7 +33,15 @@ function MetricTile({ label, value, detail, icon: Icon }: { label: string; value
   );
 }
 
-function SalesTimelineChart({ data, currency }: { data: TicketSalesDashboardData["salesTimeline"]; currency?: string }) {
+function SalesTimelineChart({
+  data,
+  currency,
+  dataMode,
+}: {
+  data: TicketSalesDashboardData["salesTimeline"];
+  currency?: string;
+  dataMode: TicketSalesDashboardData["dataMode"];
+}) {
   const maxTickets = Math.max(...data.map((point) => point.ticketsSold), 1);
   const milestonePoints = data.filter((point) => point.milestone);
 
@@ -45,7 +53,11 @@ function SalesTimelineChart({ data, currency }: { data: TicketSalesDashboardData
             <TrendingUp size={18} className="text-cyan-200" />
             <h3 className="font-black text-white">Ticket Sales Over Time</h3>
           </div>
-          <p className="mt-1 text-sm text-white/55">Mockup plot: opening rush, post-launch slowdown, and a second peak after the discount round.</p>
+          <p className="mt-1 text-sm text-white/55">
+            {dataMode === "mockup"
+              ? "Mockup plot: opening rush, post-launch slowdown, and a second peak after the discount round."
+              : "Live plot: actual ticket purchases grouped by purchase date."}
+          </p>
         </div>
         <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-2 text-sm font-bold text-cyan-100">
           Peak day: {Math.max(...data.map((point) => point.ticketsSold))} tickets
@@ -142,7 +154,7 @@ export function TicketSalesDashboard({ metrics, currency }: { metrics: TicketSal
         <MetricTile label="Refund exposure" value={formatMoney(metrics.refundExposureCents, currency)} detail={`${metrics.cancelledTickets + metrics.refundedTickets} cancelled or refunded tickets`} icon={RotateCcw} />
       </div>
 
-      <SalesTimelineChart data={metrics.salesTimeline} currency={currency} />
+      <SalesTimelineChart data={metrics.salesTimeline} currency={currency} dataMode={metrics.dataMode} />
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_380px]">
         <section className="rounded-3xl border border-white/10 bg-black/20 p-4">
