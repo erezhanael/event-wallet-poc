@@ -37,14 +37,14 @@ export default async function TicketsPage({
         <h1 className="premium-heading mt-3 text-4xl sm:text-5xl">Tickets</h1>
         <p className="mt-2 text-white/55">{event.name}</p>
       </div>
-      <div className="grid gap-5">
+      <div className="grid min-w-0 gap-5">
         {showProducerToggle && (
-          <section className="glass-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+          <section className="glass-card flex min-w-0 flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="min-w-0">
               <p className="text-sm font-black text-white">Producer dashboard mode</p>
               <p className="mt-1 text-sm text-white/55">Use mockup data for the meeting story, or switch back to the real live ticket data.</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1">
+            <div className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:w-auto">
               <Link
                 href={`/organizer/events/${eventId}/tickets?ticketData=mockup`}
                 className={`rounded-xl px-3 py-2 text-center text-sm font-black transition ${
