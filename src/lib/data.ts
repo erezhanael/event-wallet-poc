@@ -386,19 +386,27 @@ function buildSalesTimeline(tickets: Ticket[]): TicketSalesDashboard["salesTimel
     });
 }
 
+function buildNeonRooftopMockupDashboard(): TicketSalesDashboard {
+  return buildTicketSalesDashboard(
+    mockTicketTypes.filter((ticketType) => ticketType.event_id === mockEvent.id),
+    mockTickets.filter((ticket) => ticket.event_id === mockEvent.id),
+    mockTicketPromotions.filter((promotion) => promotion.event_id === mockEvent.id),
+    mockTicketCancellationRequests.filter((request) => request.event_id === mockEvent.id),
+    {
+      dataMode: "mockup",
+      headlineNote: "Mockup data for the producer meeting: built to show demand waves, discount impact, and cancellation risks before live reporting is connected.",
+      salesTimeline: mockTicketSalesTimeline,
+    },
+  );
+}
+
 export async function getTicketSalesDashboard(eventId: string): Promise<TicketSalesDashboard> {
+  if (eventId === mockEvent.id) {
+    return buildNeonRooftopMockupDashboard();
+  }
+
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return buildTicketSalesDashboard(
-      mockTicketTypes.filter((ticketType) => ticketType.event_id === eventId),
-      mockTickets.filter((ticket) => ticket.event_id === eventId),
-      mockTicketPromotions.filter((promotion) => promotion.event_id === eventId),
-      mockTicketCancellationRequests.filter((request) => request.event_id === eventId),
-      {
-        dataMode: "mockup",
-        headlineNote: "Mockup data for the producer meeting: built to show demand waves, discount impact, and cancellation risks before live reporting is connected.",
-        salesTimeline: mockTicketSalesTimeline,
-      },
-    );
+    return buildNeonRooftopMockupDashboard();
   }
 
   const supabase = createServiceSupabaseClient();
