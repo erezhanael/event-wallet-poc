@@ -31,12 +31,34 @@ export async function POST(request: Request) {
 
   const supabase = createServiceSupabaseClient();
   const cookieStore = await cookies();
-  const bartenderId = cookieStore.get("event_wallet_user_id")?.value ?? null;
+  const staffId = cookieStore.get("event_wallet_user_id")?.value ?? null;
+  const role = cookieStore.get("event_wallet_role")?.value;
+
+  if (!staffId || (role !== "bartender" && role !== "vendor")) {
+    return NextResponse.json({ error: "Assigned POS staff access is required" }, { status: 403 });
+  }
+
+  const { data: member, error: memberError } = await supabase
+    .from("event_members")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("user_id", staffId)
+    .in("role", ["bartender", "vendor"])
+    .maybeSingle();
+
+  if (memberError) {
+    return NextResponse.json({ error: memberError.message }, { status: 400 });
+  }
+
+  if (!member) {
+    return NextResponse.json({ error: "POS staff is not assigned to this event" }, { status: 403 });
+  }
+
   const { data, error } = await supabase.rpc("deduct_wallet_purchase", {
     p_event_id: eventId,
     p_qr_token: walletToken,
     p_items: items,
-    p_bartender_id: bartenderId,
+    p_bartender_id: staffId,
   });
 
   if (error) {
@@ -48,7 +70,7 @@ export async function POST(request: Request) {
       eventId,
       walletToken,
       items,
-      bartenderId,
+      bartenderId: staffId,
     });
 
     if ("error" in fallback) {

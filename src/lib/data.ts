@@ -1,6 +1,6 @@
 import { createServiceSupabaseClient, hasSupabaseEnv } from "./supabase";
-import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockStations, mockTicketCancellationRequests, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
-import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, MenuItem, PosStation, Profile, Ticket, TicketCancellationRequest, TicketPromotion, TicketType, Transaction, Wallet } from "./types";
+import { mockCancellationPolicy, mockDashboard, mockEvent, mockMenuItems, mockProfiles, mockStations, mockTicketCancellationRequests, mockTicketPromotions, mockTicketTypes, mockTickets, mockTransactions, mockWallet } from "./mock-data";
+import type { BartenderShift, BartenderShiftSummary, CancellationPolicy, DashboardMetrics, EventBartender, EventRecord, EventVendor, MenuItem, PosStation, Profile, Ticket, TicketCancellationRequest, TicketPromotion, TicketSalesDashboard, TicketType, Transaction, Wallet } from "./types";
 
 export type PublicEventSummary = EventRecord & {
   ticketTypes: TicketType[];
@@ -137,6 +137,26 @@ export async function getMenuItems(eventId: string): Promise<MenuItem[]> {
   return data ?? [];
 }
 
+export async function getVendorMenuItems(eventId: string, vendorId?: string | null, includeInactive = true): Promise<MenuItem[]> {
+  if (!vendorId) return [];
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockMenuItems.filter((item) => item.event_id === eventId && item.vendor_id === vendorId && (includeInactive || item.active));
+  }
+
+  const supabase = createServiceSupabaseClient();
+  let query = supabase
+    .from("menu_items")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("vendor_id", vendorId)
+    .order("category")
+    .order("name");
+  if (!includeInactive) query = query.eq("active", true);
+  const { data, error } = await query;
+  if (error) return [];
+  return data ?? [];
+}
+
 export async function getOrganizerMenuItems(eventId: string): Promise<MenuItem[]> {
   if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return mockMenuItems;
   const supabase = createServiceSupabaseClient();
@@ -163,6 +183,25 @@ export async function getEventStations(eventId: string, includeInactive = true):
     console.warn("Could not load POS stations", error.message);
     return [];
   }
+  return data ?? [];
+}
+
+export async function getVendorStations(eventId: string, vendorId?: string | null, includeInactive = true): Promise<PosStation[]> {
+  if (!vendorId) return [];
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockStations.filter((station) => station.event_id === eventId && station.vendor_id === vendorId && (includeInactive || station.active));
+  }
+
+  const supabase = createServiceSupabaseClient();
+  let query = supabase
+    .from("pos_stations")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("vendor_id", vendorId)
+    .order("created_at", { ascending: true });
+  if (!includeInactive) query = query.eq("active", true);
+  const { data, error } = await query;
+  if (error) return [];
   return data ?? [];
 }
 
@@ -196,7 +235,9 @@ export async function getTicketTypes(eventId: string, includeInactive = false): 
 }
 
 export async function getTicketPromotions(eventId: string): Promise<TicketPromotion[]> {
-  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return mockTicketPromotions.filter((promotion) => promotion.event_id === eventId);
+  }
 
   const supabase = createServiceSupabaseClient();
   const { data, error } = await supabase
@@ -206,6 +247,138 @@ export async function getTicketPromotions(eventId: string): Promise<TicketPromot
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+function normalizeCancellationReason(reason: string) {
+  const value = reason.toLowerCase();
+  if (/(weather|rain|wind|cold)/.test(value)) return "Weather";
+  if (/(sick|ill|covid|health|hospital)/.test(value)) return "Health";
+  if (/(schedule|conflict|work|plans|family|cannot attend|can't attend)/.test(value)) return "Schedule conflict";
+  if (/(wrong|mistake|tier|duplicate|double)/.test(value)) return "Purchase mistake";
+  if (/(travel|flight|transport|bus|train|traffic)/.test(value)) return "Travel";
+  return reason.trim() || "Other";
+}
+
+function buildTicketSalesDashboard(ticketTypes: TicketType[], tickets: Ticket[], promotions: TicketPromotion[], cancellations: TicketCancellationRequest[]): TicketSalesDashboard {
+  const ticketsByType = new Map<string, Ticket[]>();
+  for (const ticket of tickets) {
+    const group = ticketsByType.get(ticket.ticket_type_id) ?? [];
+    group.push(ticket);
+    ticketsByType.set(ticket.ticket_type_id, group);
+  }
+
+  const activeStatuses = new Set<Ticket["status"]>(["active", "checked_in"]);
+  const totalCapacity = ticketTypes.reduce((sum, ticketType) => sum + ticketType.quantity_total, 0);
+  const grossSalesCents = tickets.reduce((sum, ticket) => sum + ticket.original_price_cents, 0);
+  const netTickets = tickets.filter((ticket) => activeStatuses.has(ticket.status));
+  const netSalesCents = netTickets.reduce((sum, ticket) => sum + ticket.paid_amount_cents, 0);
+  const discountCents = tickets.reduce((sum, ticket) => sum + ticket.discount_cents, 0);
+  const refundExposureCents = cancellations
+    .filter((request) => request.status !== "rejected")
+    .reduce((sum, request) => sum + request.refund_amount_cents, 0);
+
+  const ticketTypeSales = ticketTypes.map((ticketType) => {
+    const typeTickets = ticketsByType.get(ticketType.id) ?? [];
+    const activeTypeTickets = typeTickets.filter((ticket) => activeStatuses.has(ticket.status));
+
+    return {
+      id: ticketType.id,
+      name: ticketType.name,
+      quantityTotal: ticketType.quantity_total,
+      soldCount: typeTickets.length || ticketType.quantity_sold,
+      activeCount: activeTypeTickets.length,
+      cancelledCount: typeTickets.filter((ticket) => ticket.status === "cancelled" || ticket.status === "refunded").length,
+      promoCount: typeTickets.filter((ticket) => ticket.promo_code_id).length,
+      revenueCents: activeTypeTickets.reduce((sum, ticket) => sum + ticket.paid_amount_cents, 0),
+      discountCents: typeTickets.reduce((sum, ticket) => sum + ticket.discount_cents, 0),
+    };
+  });
+
+  const promoSales: TicketSalesDashboard["promoSales"] = promotions.map((promotion) => {
+    const promoTickets = tickets.filter((ticket) => ticket.promo_code_id === promotion.id);
+    const activePromoTickets = promoTickets.filter((ticket) => activeStatuses.has(ticket.status));
+    return {
+      id: promotion.id,
+      code: promotion.code,
+      kind: promotion.discount_type,
+      soldCount: promoTickets.length || promotion.redeemed_count,
+      revenueCents: activePromoTickets.reduce((sum, ticket) => sum + ticket.paid_amount_cents, 0),
+      discountCents: promoTickets.reduce((sum, ticket) => sum + ticket.discount_cents, 0),
+    };
+  });
+
+  const fullPriceTickets = tickets.filter((ticket) => !ticket.promo_code_id);
+  promoSales.unshift({
+    id: "full-price",
+    code: "Full price",
+    kind: "full_price",
+    soldCount: fullPriceTickets.length,
+    revenueCents: fullPriceTickets.filter((ticket) => activeStatuses.has(ticket.status)).reduce((sum, ticket) => sum + ticket.paid_amount_cents, 0),
+    discountCents: 0,
+  });
+
+  const reasonMap = new Map<string, { count: number; refundCents: number }>();
+  for (const request of cancellations) {
+    const reason = normalizeCancellationReason(request.reason);
+    const current = reasonMap.get(reason) ?? { count: 0, refundCents: 0 };
+    current.count += 1;
+    current.refundCents += request.refund_amount_cents;
+    reasonMap.set(reason, current);
+  }
+
+  const statusOrder: TicketCancellationRequest["status"][] = ["pending", "approved", "rejected"];
+
+  return {
+    totalCapacity,
+    totalSold: tickets.length || ticketTypes.reduce((sum, ticketType) => sum + ticketType.quantity_sold, 0),
+    activeTickets: tickets.filter((ticket) => ticket.status === "active").length,
+    checkedInTickets: tickets.filter((ticket) => ticket.status === "checked_in").length,
+    cancelledTickets: tickets.filter((ticket) => ticket.status === "cancelled").length,
+    refundedTickets: tickets.filter((ticket) => ticket.status === "refunded").length,
+    grossSalesCents,
+    netSalesCents,
+    discountCents,
+    refundExposureCents,
+    averagePaidCents: netTickets.length ? Math.round(netSalesCents / netTickets.length) : 0,
+    ticketTypeSales,
+    promoSales: promoSales.filter((promo) => promo.soldCount > 0),
+    cancellationReasons: Array.from(reasonMap, ([reason, value]) => ({ reason, ...value })).sort((a, b) => b.count - a.count),
+    cancellationStatuses: statusOrder.map((status) => ({
+      status,
+      count: cancellations.filter((request) => request.status === status).length,
+    })),
+  };
+}
+
+export async function getTicketSalesDashboard(eventId: string): Promise<TicketSalesDashboard> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return buildTicketSalesDashboard(
+      mockTicketTypes.filter((ticketType) => ticketType.event_id === eventId),
+      mockTickets.filter((ticket) => ticket.event_id === eventId),
+      mockTicketPromotions.filter((promotion) => promotion.event_id === eventId),
+      mockTicketCancellationRequests.filter((request) => request.event_id === eventId),
+    );
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const [{ data: ticketTypes, error: ticketTypesError }, { data: tickets, error: ticketsError }, { data: promotions, error: promotionsError }, { data: cancellations, error: cancellationsError }] = await Promise.all([
+    supabase.from("ticket_types").select("*").eq("event_id", eventId).order("created_at", { ascending: true }),
+    supabase.from("tickets").select("*, ticket_type:ticket_types(*)").eq("event_id", eventId).order("purchased_at", { ascending: false }),
+    supabase.from("ticket_promotions").select("*").eq("event_id", eventId).order("created_at", { ascending: false }),
+    supabase.from("ticket_cancellation_requests").select("*").eq("event_id", eventId).order("created_at", { ascending: false }),
+  ]);
+
+  if (ticketTypesError) throw ticketTypesError;
+  if (ticketsError) throw ticketsError;
+  if (promotionsError) throw promotionsError;
+  if (cancellationsError) throw cancellationsError;
+
+  return buildTicketSalesDashboard(
+    (ticketTypes ?? []) as TicketType[],
+    (tickets ?? []) as Ticket[],
+    (promotions ?? []) as TicketPromotion[],
+    (cancellations ?? []) as TicketCancellationRequest[],
+  );
 }
 
 export async function getAttendeeTickets(eventId: string, attendeeId?: string | null): Promise<Ticket[]> {
@@ -340,6 +513,107 @@ export async function getEventBartenders(eventId: string): Promise<EventBartende
     full_name: profilesById.get(member.user_id)?.full_name ?? "Bartender",
     created_at: member.created_at,
   }));
+}
+
+export async function getEventVendors(eventId: string): Promise<EventVendor[]> {
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const vendor = mockProfiles.find((profile) => profile.role === "vendor");
+    const station = mockStations.find((candidate) => candidate.event_id === eventId && candidate.vendor_id === vendor?.id);
+    return vendor
+      ? [
+          {
+            id: "mock-vendor-member",
+            event_id: mockEvent.id,
+            user_id: vendor.id,
+            email: "vendor@example.com",
+            full_name: vendor.full_name,
+            vendor_name: vendor.full_name,
+            station_id: station?.id ?? null,
+            station_name: station?.name ?? null,
+            station_type: station?.station_type ?? null,
+            monitor_slug: station?.monitor_slug ?? null,
+            pairing_code: station?.pairing_code ?? null,
+            created_at: vendor.created_at,
+          },
+        ]
+      : [];
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data: members, error: membersError } = await supabase
+    .from("event_members")
+    .select("id, event_id, user_id, created_at")
+    .eq("event_id", eventId)
+    .eq("role", "vendor")
+    .order("created_at", { ascending: false });
+  if (membersError) throw membersError;
+
+  const userIds = (members ?? []).map((member) => member.user_id);
+  if (!userIds.length) return [];
+
+  const [{ data: profiles, error: profilesError }, { data: stations, error: stationsError }] = await Promise.all([
+    supabase.from("users_profile").select("id, full_name").in("id", userIds),
+    supabase.from("pos_stations").select("*").eq("event_id", eventId).in("vendor_id", userIds),
+  ]);
+  if (profilesError) throw profilesError;
+  if (stationsError) {
+    console.warn("Could not load vendor stations", stationsError.message);
+  }
+
+  const profilesById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const stationByVendorId = new Map((stations ?? []).filter((station) => station.vendor_id).map((station) => [station.vendor_id, station]));
+  const authUsers = await Promise.all(
+    userIds.map(async (userId) => {
+      const { data } = await supabase.auth.admin.getUserById(userId);
+      return data.user;
+    }),
+  );
+  const emailById = new Map(authUsers.filter((user) => user !== null).map((user) => [user.id, user.email ?? null]));
+
+  return (members ?? []).map((member) => {
+    const station = stationByVendorId.get(member.user_id);
+    const fullName = profilesById.get(member.user_id)?.full_name ?? "Vendor";
+    return {
+      id: member.id,
+      event_id: member.event_id,
+      user_id: member.user_id,
+      email: emailById.get(member.user_id) ?? null,
+      full_name: fullName,
+      vendor_name: fullName,
+      station_id: station?.id ?? null,
+      station_name: station?.name ?? null,
+      station_type: station?.station_type ?? null,
+      monitor_slug: station?.monitor_slug ?? null,
+      pairing_code: station?.pairing_code ?? null,
+      created_at: member.created_at,
+    };
+  });
+}
+
+export async function getVendorEvents(vendorId?: string | null): Promise<EventRecord[]> {
+  if (!vendorId) return [];
+  if (!hasSupabaseEnv() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return vendorId === mockProfiles.find((profile) => profile.role === "vendor")?.id ? [mockEvent] : [];
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data: members, error: membersError } = await supabase
+    .from("event_members")
+    .select("event_id")
+    .eq("user_id", vendorId)
+    .eq("role", "vendor");
+  if (membersError) return [];
+
+  const eventIds = (members ?? []).map((member) => member.event_id);
+  if (!eventIds.length) return [];
+
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .in("id", eventIds)
+    .order("start_time", { ascending: false });
+  if (error) return [];
+  return data ?? [];
 }
 
 export async function getCurrentBartenderShift(eventId: string, bartenderId?: string | null): Promise<BartenderShift | null> {

@@ -11,6 +11,7 @@ const demoUsers = [
   { label: "Attendee", email: "attendee@example.com" },
   { label: "Check-In", email: "checkin@example.com" },
   { label: "Bartender", email: "bartender@example.com" },
+  { label: "Vendor", email: "vendor@example.com" },
   { label: "Organizer", email: "organizer@example.com" },
 ];
 
@@ -21,6 +22,25 @@ export function LoginForm() {
   const [password, setPassword] = useState("password123");
   const [message, setMessage] = useState("Sign in to continue to your role workspace.");
   const [isLoading, setIsLoading] = useState(false);
+
+  async function repairDemoUser() {
+    const isDemoUser = demoUsers.some((user) => user.email === email);
+    if (!isDemoUser) return false;
+
+    setMessage("Preparing demo account...");
+    const response = await fetch("/api/auth/demo-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      setMessage(payload.error ?? "Could not prepare demo account.");
+      return false;
+    }
+
+    return true;
+  }
 
   async function signIn() {
     setIsLoading(true);
@@ -33,7 +53,16 @@ export function LoginForm() {
       }
 
       const supabase = createBrowserSupabaseClient();
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error?.message === "Invalid login credentials" && password === "password123") {
+        const repaired = await repairDemoUser();
+        if (repaired) {
+          setMessage("Signing in...");
+          const retry = await supabase.auth.signInWithPassword({ email, password });
+          data = retry.data;
+          error = retry.error;
+        }
+      }
       if (error || !data.session?.access_token) {
         setMessage(error?.message ?? "Could not create a Supabase session.");
         return;
@@ -61,7 +90,7 @@ export function LoginForm() {
   }
 
   return (
-    <section className="grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[1fr_430px]">
+    <section className="grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1fr_560px]">
       <motion.div initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="hidden lg:block">
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/[0.10] px-3 py-2 text-sm font-semibold text-emerald-100">
           <Sparkles size={16} />
@@ -98,7 +127,7 @@ export function LoginForm() {
           </p>
         </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:grid-cols-5">
         {demoUsers.map((user) => (
           <button
             key={user.email}
@@ -107,7 +136,7 @@ export function LoginForm() {
               setEmail(user.email);
               setPassword("password123");
             }}
-            className={`rounded-xl px-2 py-2.5 text-xs font-bold ${email === user.email ? "neon-button" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"}`}
+            className={`min-h-11 whitespace-nowrap rounded-xl px-2 py-2 text-[11px] font-bold sm:text-xs ${email === user.email ? "neon-button" : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"}`}
           >
             {user.label}
           </button>

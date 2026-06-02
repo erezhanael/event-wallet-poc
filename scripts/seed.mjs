@@ -28,6 +28,7 @@ const users = [
   { email: "attendee@example.com", password: "password123", role: "attendee", full_name: "Noam Attendee" },
   { email: "bartender@example.com", password: "password123", role: "bartender", full_name: "Dana Bar" },
   { email: "checkin@example.com", password: "password123", role: "checkin", full_name: "Rina Check-In" },
+  { email: "vendor@example.com", password: "password123", role: "vendor", full_name: "Ari Tacos" },
 ];
 
 async function upsertUser(user) {
@@ -90,6 +91,7 @@ await supabase.from("event_members").upsert(
     { event_id: event.id, user_id: ids.attendee, role: "attendee" },
     { event_id: event.id, user_id: ids.bartender, role: "bartender" },
     { event_id: event.id, user_id: ids.checkin, role: "checkin" },
+    { event_id: event.id, user_id: ids.vendor, role: "vendor" },
   ],
   { onConflict: "event_id,user_id" },
 );
@@ -112,13 +114,28 @@ if (walletError) throw walletError;
 
 await supabase.from("menu_items").delete().eq("event_id", event.id);
 await supabase.from("menu_items").insert([
-  { event_id: event.id, name: "Goldstar", price_cents: 2800, category: "Beer" },
-  { event_id: event.id, name: "Arak Lemonade", price_cents: 4200, category: "Cocktail" },
-  { event_id: event.id, name: "Vodka Soda", price_cents: 4600, category: "Cocktail" },
-  { event_id: event.id, name: "Mineral Water", price_cents: 1200, category: "Soft" },
-  { event_id: event.id, name: "Energy Drink", price_cents: 1800, category: "Soft" },
-  { event_id: event.id, name: "House Shot", price_cents: 2200, category: "Shot" },
+  { event_id: event.id, vendor_id: null, name: "Goldstar", price_cents: 2800, category: "Beer" },
+  { event_id: event.id, vendor_id: null, name: "Arak Lemonade", price_cents: 4200, category: "Cocktail" },
+  { event_id: event.id, vendor_id: null, name: "Vodka Soda", price_cents: 4600, category: "Cocktail" },
+  { event_id: event.id, vendor_id: null, name: "Mineral Water", price_cents: 1200, category: "Soft" },
+  { event_id: event.id, vendor_id: null, name: "Energy Drink", price_cents: 1800, category: "Soft" },
+  { event_id: event.id, vendor_id: null, name: "House Shot", price_cents: 2200, category: "Shot" },
+  { event_id: event.id, vendor_id: ids.vendor, name: "Taco Plate", price_cents: 5200, category: "Food" },
+  { event_id: event.id, vendor_id: ids.vendor, name: "Loaded Fries", price_cents: 3600, category: "Food" },
 ]);
+
+await supabase.from("pos_stations").upsert(
+  {
+    event_id: event.id,
+    vendor_id: ids.vendor,
+    name: "Ari Tacos",
+    station_type: "food",
+    pairing_code: "7351",
+    monitor_slug: "ari-tacos",
+    active: true,
+  },
+  { onConflict: "event_id,monitor_slug" },
+);
 
 await supabase.from("ticket_types").delete().eq("event_id", event.id);
 await supabase.from("ticket_types").insert([
@@ -198,4 +215,5 @@ console.log("Event code: LUNA-2026");
 console.log("Attendee: attendee@example.com / password123");
 console.log("Bartender: bartender@example.com / password123");
 console.log("Check-In: checkin@example.com / password123");
+console.log("Vendor: vendor@example.com / password123");
 console.log("Organizer: organizer@example.com / password123");

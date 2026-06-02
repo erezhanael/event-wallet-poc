@@ -1,4 +1,4 @@
-export type UserRole = "attendee" | "bartender" | "organizer" | "checkin";
+export type UserRole = "attendee" | "bartender" | "organizer" | "checkin" | "vendor";
 
 export type Profile = {
   id: string;
@@ -31,6 +31,7 @@ export type Wallet = {
 export type MenuItem = {
   id: string;
   event_id: string;
+  vendor_id?: string | null;
   name: string;
   price_cents: number;
   category: string;
@@ -43,6 +44,21 @@ export type EventBartender = {
   user_id: string;
   email: string | null;
   full_name: string;
+  created_at: string;
+};
+
+export type EventVendor = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  email: string | null;
+  full_name: string;
+  vendor_name: string;
+  station_id: string | null;
+  station_name: string | null;
+  station_type: PosStation["station_type"] | null;
+  monitor_slug: string | null;
+  pairing_code: string | null;
   created_at: string;
 };
 
@@ -63,6 +79,7 @@ export type BartenderShiftSummary = BartenderShift & {
 export type PosStation = {
   id: string;
   event_id: string;
+  vendor_id?: string | null;
   name: string;
   station_type: "bar" | "food" | "merch" | "other";
   pairing_code: string;
@@ -234,4 +251,46 @@ export type DashboardMetrics = {
   attendeeCount: number;
   topItems: Array<{ name: string; quantity: number; revenueCents: number }>;
   hourlySales: Array<{ hour: string; salesCents: number }>;
+};
+
+export type TicketSalesDashboard = {
+  totalCapacity: number;
+  totalSold: number;
+  activeTickets: number;
+  checkedInTickets: number;
+  cancelledTickets: number;
+  refundedTickets: number;
+  grossSalesCents: number;
+  netSalesCents: number;
+  discountCents: number;
+  refundExposureCents: number;
+  averagePaidCents: number;
+  ticketTypeSales: Array<{
+    id: string;
+    name: string;
+    quantityTotal: number;
+    soldCount: number;
+    activeCount: number;
+    cancelledCount: number;
+    promoCount: number;
+    revenueCents: number;
+    discountCents: number;
+  }>;
+  promoSales: Array<{
+    id: string;
+    code: string;
+    kind: "full_price" | TicketPromotion["discount_type"];
+    soldCount: number;
+    revenueCents: number;
+    discountCents: number;
+  }>;
+  cancellationReasons: Array<{
+    reason: string;
+    count: number;
+    refundCents: number;
+  }>;
+  cancellationStatuses: Array<{
+    status: TicketCancellationRequest["status"];
+    count: number;
+  }>;
 };

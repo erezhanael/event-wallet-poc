@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, LayoutDashboard, Martini, QrCode, TicketCheck } from "lucide-react";
+import { CreditCard, LayoutDashboard, Martini, QrCode, Store, TicketCheck } from "lucide-react";
 import { cookies } from "next/headers";
 import { isUserRole } from "@/lib/auth";
 import { getProfile } from "@/lib/data";
@@ -9,6 +9,7 @@ import { LogoutButton } from "./logout-button";
 const nav = [
   { href: "/attendee/events", label: "Attendee", icon: QrCode, role: "attendee" },
   { href: "/bartender", label: "Bartender", icon: Martini, role: "bartender" },
+  { href: "/vendor", label: "Vendor", icon: Store, role: "vendor" },
   { href: "/check-in", label: "Check-In", icon: TicketCheck, role: "checkin" },
   { href: "/organizer/dashboard", label: "Organizer", icon: LayoutDashboard, role: "organizer" },
 ];

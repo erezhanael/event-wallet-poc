@@ -1,14 +1,16 @@
 import { AppShell } from "@/components/app-shell";
 import { PromoCodeManager } from "@/components/promo-code-manager";
+import { TicketSalesDashboard } from "@/components/ticket-sales-dashboard";
 import { TicketTypeManager } from "@/components/ticket-type-manager";
-import { getEvent, getTicketPromotions, getTicketTypes } from "@/lib/data";
+import { getEvent, getTicketPromotions, getTicketSalesDashboard, getTicketTypes } from "@/lib/data";
 
 export default async function TicketsPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const [event, ticketTypes, promotions] = await Promise.all([
+  const [event, ticketTypes, promotions, ticketSalesDashboard] = await Promise.all([
     getEvent(eventId),
     getTicketTypes(eventId, true),
     getTicketPromotions(eventId).catch(() => []),
+    getTicketSalesDashboard(eventId),
   ]);
 
   if (!event) return <AppShell><p>Event not found.</p></AppShell>;
@@ -21,6 +23,7 @@ export default async function TicketsPage({ params }: { params: Promise<{ eventI
         <p className="mt-2 text-white/55">{event.name}</p>
       </div>
       <div className="grid gap-5">
+        <TicketSalesDashboard metrics={ticketSalesDashboard} currency={event.currency} />
         <TicketTypeManager eventId={eventId} currency={event.currency} initialTicketTypes={ticketTypes} />
         <PromoCodeManager eventId={eventId} currency={event.currency} initialPromotions={promotions} />
       </div>

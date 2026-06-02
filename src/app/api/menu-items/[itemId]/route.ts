@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { requireOrganizerForEvent } from "@/lib/menu-auth";
 import { createServiceSupabaseClient, hasSupabaseEnv } from "@/lib/supabase";
+import { requireVendorForEvent } from "@/lib/vendor-auth";
 
 type MenuItemUpdateInput = {
   eventId?: string;
@@ -29,7 +31,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ it
     return NextResponse.json({ error: cleaned.error }, { status: 400 });
   }
 
-  const auth = await requireOrganizerForEvent(cleaned.eventId);
+  const cookieStore = await cookies();
+  const role = cookieStore.get("event_wallet_role")?.value;
+  const userId = cookieStore.get("event_wallet_user_id")?.value ?? null;
+  const auth = role === "vendor" ? await requireVendorForEvent(cleaned.eventId) : await requireOrganizerForEvent(cleaned.eventId);
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -38,6 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ it
     return NextResponse.json({
       id: itemId,
       event_id: cleaned.eventId,
+      vendor_id: role === "vendor" ? userId : null,
       name: cleaned.name,
       category: cleaned.category,
       price_cents: cleaned.priceCents,
@@ -46,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ it
   }
 
   const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("menu_items")
     .update({
       name: cleaned.name,
@@ -55,9 +61,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ it
       active: cleaned.active,
     })
     .eq("id", itemId)
-    .eq("event_id", cleaned.eventId)
-    .select("*")
-    .single();
+    .eq("event_id", cleaned.eventId);
+
+  if (role === "vendor") {
+    query = query.eq("vendor_id", userId);
+  }
+
+  const { data, error } = await query.select("*").single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });

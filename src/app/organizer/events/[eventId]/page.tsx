@@ -4,11 +4,17 @@ import { AppShell } from "@/components/app-shell";
 import { BartenderManager } from "@/components/bartender-manager";
 import { TapMotion } from "@/components/motion-primitives";
 import { StationManager } from "@/components/station-manager";
-import { getEvent, getEventBartenders, getEventStations } from "@/lib/data";
+import { VendorManager } from "@/components/vendor-manager";
+import { getEvent, getEventBartenders, getEventStations, getEventVendors } from "@/lib/data";
 
 export default async function EventAdminPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const [event, bartenders, stations] = await Promise.all([getEvent(eventId), getEventBartenders(eventId), getEventStations(eventId)]);
+  const [event, bartenders, vendors, stations] = await Promise.all([
+    getEvent(eventId),
+    getEventBartenders(eventId),
+    getEventVendors(eventId),
+    getEventStations(eventId),
+  ]);
 
   if (!event) return <AppShell><p>Event not found.</p></AppShell>;
 
@@ -58,6 +64,9 @@ export default async function EventAdminPage({ params }: { params: Promise<{ eve
       </div>
       <div className="mt-4">
         <BartenderManager eventId={event.id} initialBartenders={bartenders} />
+      </div>
+      <div className="mt-4">
+        <VendorManager eventId={event.id} initialVendors={vendors} />
       </div>
       <div className="mt-4">
         <StationManager eventId={event.id} initialStations={stations} />
