@@ -65,26 +65,28 @@ function SalesTimelineChart({
       </div>
 
       <div className="overflow-x-auto pb-2">
-        <div className="flex min-w-[760px] items-end gap-3 border-b border-white/10 pb-3">
+        <div className="grid min-w-[860px] grid-cols-12 gap-3 border-b border-white/10 pb-3">
           {data.map((point) => {
-            const height = Math.max(18, (point.ticketsSold / maxTickets) * 190);
+            const height = Math.max(18, (point.ticketsSold / maxTickets) * 132);
             const isMilestone = Boolean(point.milestone);
 
             return (
-              <div key={point.date} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex h-40 w-full items-end justify-center">
-                  <div className="relative flex w-full max-w-12 justify-center">
-                    {isMilestone && (
-                      <div className="absolute bottom-[calc(100%+10px)] left-1/2 z-10 w-32 -translate-x-1/2 rounded-2xl border border-fuchsia-300/25 bg-fuchsia-300/[0.14] px-2 py-1 text-center text-[11px] font-black leading-tight text-fuchsia-50">
-                        {point.milestone}
-                      </div>
-                    )}
-                    <div
-                      className={`w-full rounded-t-2xl ${isMilestone ? "bg-gradient-to-t from-fuchsia-400 via-cyan-300 to-emerald-200 shadow-[0_0_24px_rgba(217,70,239,0.28)]" : "bg-white/20"}`}
-                      style={{ height }}
-                      title={`${point.label}: ${point.ticketsSold} tickets, ${formatMoney(point.revenueCents, currency)}`}
-                    />
-                  </div>
+              <div key={point.date} className="grid min-w-0 grid-rows-[42px_148px_18px_18px] items-end justify-items-center gap-1">
+                <div className="flex h-full w-full items-end justify-center">
+                  {isMilestone ? (
+                    <span className="max-w-full rounded-xl border border-fuchsia-300/25 bg-fuchsia-300/[0.14] px-2 py-1 text-center text-[10px] font-black leading-tight text-fuchsia-50">
+                      {point.milestone}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex h-full w-full items-end justify-center rounded-b-2xl border-b border-white/10">
+                  <div
+                    className={`w-full max-w-11 rounded-t-2xl ${
+                      isMilestone ? "bg-gradient-to-t from-fuchsia-400 via-cyan-300 to-emerald-200 shadow-[0_0_24px_rgba(217,70,239,0.28)]" : "bg-white/20"
+                    }`}
+                    style={{ height }}
+                    aria-label={`${point.label}: ${point.ticketsSold} tickets, ${formatMoney(point.revenueCents, currency)}`}
+                  />
                 </div>
                 <p className="text-xs font-black text-white">{point.ticketsSold}</p>
                 <p className="text-[11px] font-bold text-white/45">{point.label}</p>
